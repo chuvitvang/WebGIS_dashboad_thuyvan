@@ -3,10 +3,6 @@
   "version": "1.0.0",
   "description": "Hệ thống giám sát mực nước WebGIS",
   "main": "index.html",
-  "scripts": {
-    "start": "npx serve .",
-    "build": "echo 'No build step required for static HTML'"
-  },
   "keywords": [
     "gis",
     "dashboard",
