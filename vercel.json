@@ -3,6 +3,7 @@
   "name": "webgis-water-level-dashboard",
   "cleanUrls": true,
   "trailingSlash": false,
+  "outputDirectory": ".",
   "headers": [
     {
       "source": "/assets/(.*)",
