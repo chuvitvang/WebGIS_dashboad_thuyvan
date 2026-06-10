@@ -4,15 +4,6 @@
 
 ---
 
-## 📸 GIAO DIỆN THỰC TẾ HỆ THỐNG WEBGIS (PREMIUM DASHBOARD)
-
-````carousel
-![Giao diện dự báo mực nước sông trạm Phú An](assets/images/aiml_forecast_water.png)
-<!-- slide -->
-![Giao diện dự báo lượng mưa trạm Phạm Văn Cội](assets/images/aiml_forecast_rain.png)
-````
-
----
 
 ## 📌 BẢNG MỤC LỤC
 1. [Đặt vấn đề & Sự cần thiết](#-1-dat-van-de--su-can-thiet)
@@ -311,16 +302,15 @@ flowchart TD
 1. **Cấu hình Biến môi trường (Environment Variables) trên Vercel Settings**:
    * **Key**: `SUPABASE_URL` | **Value**: *[Địa chỉ URL dự án Supabase]*
    * **Key**: `SUPABASE_ANON_KEY` | **Value**: *[Khóa Anon public]*
-2. **Cơ chế bảo mật**:
-   Khi deploy, máy chủ Vercel tự động kích hoạt script `"build": "node build.js"` khai báo trong [package.json](file:///c:/Users/admin/Desktop/opengis/WebGIS_dashboad_thuyvan/package.json). Lệnh này chạy tệp [build.js](file:///c:/Users/admin/Desktop/opengis/WebGIS_dashboad_thuyvan/build.js) để nạp các biến môi trường trên và tạo ra tệp `assets/js/config.js` động trước khi phân phối giao diện tĩnh, ngăn chặn việc lộ API Key lên GitHub.
 
 ---
 
 ## 📈 9. ĐÁNH GIÁ KẾT QUẢ THỰC NGHIỆM
 
-* **Tối ưu hóa:** Lọc dữ liệu động phía Server giúp giảm dung lượng tải mạng từ hàng chục MB xuống **dưới 15KB** mỗi lần chuyển đổi trạm.
+* **Tối ưu hóa:** Lọc dữ liệu động phía Server giúp giảm dung lượng tải mạng 
 * **Giao diện hiện đại:** Phong cách Glassmorphic chuyên nghiệp, cảnh báo triều cường đồng bộ tức thời khi mực nước dự báo vượt ngưỡng báo động lũ quy chuẩn.
 * **Mô hình tin cậy:** Cơ chế Threshold AR xử lý triệt để hiện tượng nhiễu giả lập mưa trong mùa khô, đảm bảo chất lượng hiển thị tin cậy.
+* **Hướng phát triển sau và vá lỗi:** mô hình WebGIS đã hiển thị nhưng còn nhiều vấn đề liên quan đến tính chính xác và độ tin cậy, cần phải nghiên cứu và cải tiến nhiều hơn để đáp ứng được yêu cầu thực tế.
 
 ---
 **Nhóm tác giả Đồ án môn học WebGIS - Đồ án thực nghiệm khoa học**
