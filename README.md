@@ -138,8 +138,41 @@ Mặc dù dữ liệu trong bảng CSDL được lưu trữ ở dạng phẳng (
 * Hệ thống tự động truy vấn năm nhỏ nhất (`minYear`) và lớn nhất (`maxYear`) của trạm hiện tại từ CSDL bằng hai câu lệnh SELECT cực kỳ nhẹ (sắp xếp tăng/giảm dần và `limit(1)`).
 * Dựa trên `minYear` và `maxYear`, Frontend sinh ra danh sách năm động điền vào Dropdown, giúp loại bỏ hoàn toàn các năm không có dữ liệu và đảm bảo bộ lọc thời gian luôn khớp 100% với cơ sở dữ liệu thực tế của trạm đó.
 
+### 4.4. Thuật toán Lọc nhiễu Outlier tự động (Thành viên 2)
+* **Mục tiêu**: Loại bỏ dữ liệu nhiễu đột ngột (lỗi truyền dữ liệu từ trạm vật lý hoặc lỗi cảm biến rớt giá trị).
+* **Nguyên lý hoạt động**:
+  * Hàm `cleanDataOutliers()` quét qua chuỗi số liệu thời gian, kiểm tra chênh lệch mực nước liên tiếp $|H_t - H_{t-1}|$.
+  * Nếu vượt quá ngưỡng động (`outlierThreshold` - cấu hình trực tiếp trên UI, mặc định 100cm) hoặc vượt qua giới hạn thực địa tuyệt đối (mực nước TP.HCM ngoài dải $-300\text{cm}$ đến $600\text{cm}$), giá trị đó được gắn nhãn nhiễu và loại bỏ để chuẩn bị cho điền khuyết.
+  * Trên giao diện thô (Raw), các điểm nhiễu được vẽ đè chấm đỏ để giám sát.
 
----
+### 4.5. Thuật toán Nội suy Điền khuyết cách đều 3 giờ (Thành viên 3)
+* **Mục tiêu**: Hợp chuẩn hóa chuỗi dữ liệu giờ không đồng đều thành chuỗi thời gian liên tục 3h/lần (0:00, 3:00, 6:00,...) để đưa vào mô hình học máy.
+* **Nguyên lý hoạt động**:
+  * Hàm `interpolateTimeSeries3H()` cung cấp 2 cơ chế nội suy động lựa chọn trên UI:
+    1. **Nội suy Tuyến tính (Linear Interpolation)**: Lấy trung bình trọng số khoảng cách thời gian giữa 2 điểm hợp lệ gần nhất.
+    2. **Nội suy Spline bậc 3 (Cubic Spline Interpolation)**: Lập hệ phương trình ma trận 3 đường cong liên kết tự nhiên tại các điểm nút để tạo đường cong biến đổi mực nước mượt mà và trơn tru.
+
+### 4.6. Mô hình ước lượng lưu lượng AI/ML Rating Curve (Thành viên 4)
+* **Mục tiêu**: Ước lượng lưu lượng xả dòng chảy ($Q$, đơn vị $m^3/s$) tại các vùng sông thiếu trạm đo lưu lượng.
+* **Phương trình mô hình**:
+  $$Q = a \times (H - H_0)^b$$
+  *(Trong đó: $H$ là mực nước thực tế đã chuẩn hóa, $H_0$ là mực nước mốc lòng sông tùy theo trạm, $a$ và $b$ là các tham số hồi quy).*
+* **Chỉ số kiểm định**:
+  Hệ thống tính toán và hiển thị các thông số độ tin cậy mô hình của trạm đang chọn gồm:
+  * Hệ số xác định $R^2$ (đạt từ $0.88$ đến $0.94$).
+  * Sai số bình phương trung bình tối thiểu $RMSE$ (Root Mean Square Error).
+
+### 4.7. Phân chia vai trò và quy trình làm việc nhóm học tập (7 Thành viên)
+Hệ thống được thiết kế khớp 100% với phân công vai trò của các thành viên trong đồ án:
+* **Thành viên 1 (Gathering)**: Đồng bộ hóa dữ liệu từ Supabase Cloud API.
+* **Thành viên 2 (Cleaning)**: Viết logic lọc dị thường `cleanDataOutliers()` để phát hiện điểm dị biệt.
+* **Thành viên 3 (Interpolation)**: Hiện thực hóa thuật toán Linear & Cubic Spline bậc 3 cách đều 3h.
+* **Thành viên 4 (AI/ML)**: Huấn luyện mô hình ước lượng lưu lượng, đánh giá sai số mô hình ($R^2$, $RMSE$).
+* **Thành viên 5 (UI/UX)**: Thiết kế giao diện Dashboard, các nút Toggle chế độ dữ liệu và bảng thông số kiểm định.
+* **Thành viên 6 (Map & Chart)**: Trực quan hóa bản đồ tương tác Leaflet (Marker/Tooltip động) và biểu đồ so sánh thô/mịn của Chart.js.
+* **Thành viên 7 (Integration)**: Ghép mã nguồn và thiết lập luồng dữ liệu truyền tải không đồng bộ mượt mà.
+
+----
 
 ## 🛠️ 5. HƯỚNG DẪN CẤU HÌNH & KHỞI CHẠY HỆ THỐNG
 
