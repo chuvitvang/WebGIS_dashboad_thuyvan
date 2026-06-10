@@ -67,25 +67,35 @@ function cleanAccents(str) {
 
 let dateOptions = {}; // Lưu trữ cấu trúc năm/tháng có dữ liệu của trạm hiện tại
 
-// Hàm thiết lập khoảng ngày mặc định (30 ngày gần nhất tính từ ngày mới nhất có dữ liệu của trạm)
-function setDefaultDateRange() {
+// Hàm thiết lập khoảng ngày mặc định (30 ngày gần nhất tính từ ngày mới nhất có dữ liệu của trạm trong CSDL)
+async function setDefaultDateRange() {
     const st = stations[currentStation];
-    if (!st || !st.chartData || !st.chartData.dates || st.chartData.dates.length === 0) {
+    if (!st || !supabaseClient) {
         const today = new Date();
         const past30Days = new Date();
         past30Days.setDate(today.getDate() - 30);
         
         filteredEndDate = formatDate(today);
         filteredStartDate = formatDate(past30Days);
-    } else {
-        const dates = st.chartData.dates;
+        return;
+    }
+
+    try {
+        const tableName = st.id.startsWith('MN_') ? 'tram_thuy_van' : 'tram_luong_mua';
+        
+        // Lấy ngày mới nhất có dữ liệu của trạm trong database
+        const { data, error } = await supabaseClient
+            .from(tableName)
+            .select('ngay')
+            .eq('tenTram', st.name)
+            .order('ngay', { ascending: false })
+            .limit(1);
+
+        if (error) throw error;
+
         let latest = null;
-        for (const d of dates) {
-            if (d) {
-                if (!latest || d > latest) {
-                    latest = d;
-                }
-            }
+        if (data && data.length > 0 && data[0].ngay) {
+            latest = data[0].ngay;
         }
         
         if (!latest) {
@@ -105,11 +115,19 @@ function setDefaultDateRange() {
             filteredEndDate = formatDate(maxDateObj);
             filteredStartDate = formatDate(minDateObj);
         }
+    } catch (err) {
+        console.error("Lỗi xác định khoảng ngày mặc định:", err.message);
+        const today = new Date();
+        const past30Days = new Date();
+        past30Days.setDate(today.getDate() - 30);
+        
+        filteredEndDate = formatDate(today);
+        filteredStartDate = formatDate(past30Days);
     }
 }
 
 // Cập nhật dropdown chọn Năm và Tháng dựa trên dữ liệu thực tế của trạm đang chọn
-function updateDateFilterOptions() {
+async function updateDateFilterOptions() {
     const st = stations[currentStation];
     const yearSelect = document.getElementById('filterYear');
     const monthSelect = document.getElementById('filterMonth');
@@ -120,7 +138,7 @@ function updateDateFilterOptions() {
     monthSelect.innerHTML = '';
     dateOptions = {};
     
-    if (!st || !st.chartData || !st.chartData.dates || st.chartData.dates.length === 0) {
+    if (!st || !supabaseClient) {
         const opt = document.createElement('option');
         opt.value = '';
         opt.textContent = 'Không có dữ liệu';
@@ -129,44 +147,63 @@ function updateDateFilterOptions() {
         return;
     }
     
-    // Gom nhóm năm/tháng từ dữ liệu thực tế
-    st.chartData.dates.forEach(d => {
-        if (d) {
-            const parts = d.split('-');
-            const y = parts[0];
-            const m = parseInt(parts[1]);
-            if (!dateOptions[y]) {
-                dateOptions[y] = new Set();
-            }
-            dateOptions[y].add(m);
+    try {
+        const tableName = st.id.startsWith('MN_') ? 'tram_thuy_van' : 'tram_luong_mua';
+        
+        // Truy vấn năm nhỏ nhất và năm lớn nhất của trạm để dựng bộ lọc
+        const [minRes, maxRes] = await Promise.all([
+            supabaseClient.from(tableName).select('year').eq('tenTram', st.name).order('year', { ascending: true }).limit(1),
+            supabaseClient.from(tableName).select('year').eq('tenTram', st.name).order('year', { ascending: false }).limit(1)
+        ]);
+
+        let minYear = 2008;
+        let maxYear = new Date().getFullYear();
+
+        if (minRes.data && minRes.data.length > 0 && minRes.data[0].year) {
+            minYear = minRes.data[0].year;
         }
-    });
-    
-    // Thêm option mặc định "30 ngày gần nhất"
-    const defaultOpt = document.createElement('option');
-    defaultOpt.value = 'default';
-    defaultOpt.textContent = '30 ngày gần nhất';
-    yearSelect.appendChild(defaultOpt);
-    
-    // Sắp xếp các năm giảm dần
-    const years = Object.keys(dateOptions).sort((a, b) => b - a);
-    years.forEach(y => {
+        if (maxRes.data && maxRes.data.length > 0 && maxRes.data[0].year) {
+            maxYear = maxRes.data[0].year;
+        }
+
+        // Tạo mảng năm tháng giả định (từ minYear đến maxYear, mỗi năm đầy đủ 12 tháng)
+        for (let y = minYear; y <= maxYear; y++) {
+            dateOptions[y] = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+        }
+        
+        // Thêm option mặc định "30 ngày gần nhất"
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = 'default';
+        defaultOpt.textContent = '30 ngày gần nhất';
+        yearSelect.appendChild(defaultOpt);
+        
+        // Sắp xếp các năm giảm dần
+        const years = Object.keys(dateOptions).sort((a, b) => b - a);
+        years.forEach(y => {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = `Năm ${y}`;
+            yearSelect.appendChild(opt);
+        });
+        
+        if (isManualFilterApplied) {
+            syncDropdownsToManualFilter();
+        } else {
+            yearSelect.value = 'default';
+            monthSelect.innerHTML = '<option value="">--</option>';
+            monthSelect.disabled = true;
+        }
+    } catch (err) {
+        console.error("Lỗi khi tải bộ lọc năm tháng từ Supabase:", err.message);
         const opt = document.createElement('option');
-        opt.value = y;
-        opt.textContent = `Năm ${y}`;
+        opt.value = '';
+        opt.textContent = 'Lỗi nạp năm';
         yearSelect.appendChild(opt);
-    });
-    
-    if (isManualFilterApplied) {
-        syncDropdownsToManualFilter();
-    } else {
-        yearSelect.value = 'default';
-        monthSelect.innerHTML = '<option value="">--</option>';
         monthSelect.disabled = true;
     }
 }
 
-function onYearChange() {
+async function onYearChange() {
     const yearSelect = document.getElementById('filterYear');
     const monthSelect = document.getElementById('filterMonth');
     const year = yearSelect.value;
@@ -175,7 +212,8 @@ function onYearChange() {
         isManualFilterApplied = false;
         monthSelect.innerHTML = '<option value="">--</option>';
         monthSelect.disabled = true;
-        setDefaultDateRange();
+        await setDefaultDateRange();
+        await loadStationData(currentStation, filteredStartDate, filteredEndDate);
         updateDashboard();
         return;
     }
@@ -193,35 +231,40 @@ function onYearChange() {
     
     if (months.length > 0) {
         monthSelect.value = months[0];
-        applyDropdownFilter(year, months[0]);
+        await applyDropdownFilter(year, months[0]);
     }
 }
 
-function onMonthChange() {
+async function onMonthChange() {
     const yearSelect = document.getElementById('filterYear');
     const monthSelect = document.getElementById('filterMonth');
     const year = yearSelect.value;
     const month = monthSelect.value;
     
     if (year && month) {
-        applyDropdownFilter(year, month);
+        await applyDropdownFilter(year, month);
     }
 }
 
-function applyDropdownFilter(year, month) {
+async function applyDropdownFilter(year, month) {
     isManualFilterApplied = true;
     const mStr = String(month).padStart(2, '0');
     filteredStartDate = `${year}-${mStr}-01`;
-    filteredEndDate = `${year}-${mStr}-31`;
+    // Tính ngày cuối cùng của tháng đó một cách chính xác (28, 29, 30 hoặc 31 ngày)
+    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    filteredEndDate = `${year}-${mStr}-${String(lastDay).padStart(2, '0')}`;
+    
+    // Tải lại dữ liệu quan trắc cho khoảng ngày mới
+    await loadStationData(currentStation, filteredStartDate, filteredEndDate);
     updateDashboard();
 }
 
-function resetDateFilter() {
+async function resetDateFilter() {
     isManualFilterApplied = false;
     const yearSelect = document.getElementById('filterYear');
     if (yearSelect) {
         yearSelect.value = 'default';
-        onYearChange();
+        await onYearChange();
     }
 }
 
@@ -586,23 +629,23 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
 }
 
 // Tải dữ liệu chi tiết cho trạm được chọn từ Supabase (hỗ trợ lấy tối đa 25.000 dòng để vượt qua giới hạn 1000 dòng mặc định)
-async function loadStationData(stId) {
+// Tải dữ liệu đo đạc (Mực nước hoặc Lượng mưa) trong khoảng ngày nhất định từ Supabase
+async function loadStationData(stId, startDate, endDate) {
     const st = stations[stId];
     if (!st || !supabaseClient) return;
     
-    // Nếu trạm đã được load đầy đủ dữ liệu từ trước, dùng luôn
-    if (st.loaded) return;
-    
-    console.log(`Đang tải toàn bộ dữ liệu quan trắc cho trạm: ${st.name}...`);
+    console.log(`Đang tải dữ liệu cho trạm: ${st.name} từ ${startDate} đến ${endDate}...`);
     try {
         if (st.id.startsWith('MN_')) {
             const { data, error } = await supabaseClient
                 .from('tram_thuy_van')
                 .select('ngay, gio, mucNuoc')
                 .eq('tenTram', st.name)
+                .gte('ngay', startDate)
+                .lte('ngay', endDate)
                 .order('ngay', { ascending: true })
                 .order('gio', { ascending: true })
-                .limit(25000); // Lấy tối đa 25.000 dòng (quá đủ cho trạm Phú An/Nhà Bè đo hàng ngày trong 15 năm)
+                .limit(25000); 
                 
             if (error) throw error;
             
@@ -623,6 +666,8 @@ async function loadStationData(stId) {
                 .from('tram_luong_mua')
                 .select('ngay, gio, luongMua')
                 .eq('tenTram', st.name)
+                .gte('ngay', startDate)
+                .lte('ngay', endDate)
                 .order('ngay', { ascending: true })
                 .order('gio', { ascending: true })
                 .limit(25000);
@@ -700,17 +745,20 @@ async function loadDataFromSupabase() {
         // Chọn trạm mặc định đầu tiên
         currentStation = Object.keys(stations)[0];
         
-        // Tải toàn bộ dữ liệu lịch sử cho trạm mặc định đầu tiên
-        await loadStationData(currentStation);
+        // Tải khoảng năm của trạm và cập nhật Dropdown bộ lọc
+        await updateDateFilterOptions();
+
+        // Xác định ngày bắt đầu/kết thúc mặc định (30 ngày gần nhất)
+        if (!isManualFilterApplied) {
+            await setDefaultDateRange();
+        }
+
+        // Tải toàn bộ dữ liệu quan trắc cho trạm mặc định đầu tiên theo khoảng ngày mặc định
+        await loadStationData(currentStation, filteredStartDate, filteredEndDate);
 
         const firstSt = stations[currentStation];
         if (leafletMap && firstSt) {
             leafletMap.setView([firstSt.lat, firstSt.lng], 10);
-        }
-
-        updateDateFilterOptions();
-        if (!isManualFilterApplied) {
-            setDefaultDateRange();
         }
 
         // Vẽ marker lên bản đồ
@@ -748,15 +796,18 @@ async function loadDataFromSupabase() {
                     updateMapMarkers();
                     leafletMap.panTo([st.lat, st.lng]);
                     
-                    // Tải dữ liệu chi tiết của trạm này (nếu chưa tải)
-                    await loadStationData(key);
+                    // Tải khoảng năm và cập nhật dropdown cho trạm được click
+                    await updateDateFilterOptions();
                     
-                    updateDateFilterOptions();
+                    // Xác định khoảng ngày 30 ngày gần nhất của trạm được chọn
                     if (!isManualFilterApplied) {
-                        setDefaultDateRange();
+                        await setDefaultDateRange();
                     } else {
                         syncDropdownsToManualFilter();
                     }
+                    
+                    // Tải dữ liệu thực tế của trạm này
+                    await loadStationData(key, filteredStartDate, filteredEndDate);
                     updateDashboard();
                 });
 
