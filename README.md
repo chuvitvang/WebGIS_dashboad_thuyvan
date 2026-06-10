@@ -296,6 +296,24 @@ CREATE INDEX idx_thuy_van_ten_tram_ngay ON tram_thuy_van("tenTram", "ngay");
    ```
 3. Truy cập địa chỉ `http://localhost:5500`.
 
+### Bước 8.3: Triển khai lên Production (Vercel Cloud CI/CD)
+Hệ thống tích hợp quy trình Zero-Config CI/CD tự động biên dịch tệp cấu hình bảo mật khi deploy:
+
+```mermaid
+flowchart TD
+    Github[1. Đẩy mã nguồn lên GitHub] --> Vercel[2. Kết nối Kho chứa với Vercel]
+    Vercel --> EnvVar[3. Thêm Biến môi trường SUPABASE_URL / ANON_KEY]
+    EnvVar --> Deploy[4. Vercel tự động kích hoạt lệnh npm run build]
+    Deploy --> config[5. build.js tự sinh ra config.js an toàn ở production]
+    config --> Finish[6. WebGIS chính thức hoạt động trên Vercel]
+```
+
+1. **Cấu hình Biến môi trường (Environment Variables) trên Vercel Settings**:
+   * **Key**: `SUPABASE_URL` | **Value**: *[Địa chỉ URL dự án Supabase]*
+   * **Key**: `SUPABASE_ANON_KEY` | **Value**: *[Khóa Anon public]*
+2. **Cơ chế bảo mật**:
+   Khi deploy, máy chủ Vercel tự động kích hoạt script `"build": "node build.js"` khai báo trong [package.json](file:///c:/Users/admin/Desktop/opengis/WebGIS_dashboad_thuyvan/package.json). Lệnh này chạy tệp [build.js](file:///c:/Users/admin/Desktop/opengis/WebGIS_dashboad_thuyvan/build.js) để nạp các biến môi trường trên và tạo ra tệp `assets/js/config.js` động trước khi phân phối giao diện tĩnh, ngăn chặn việc lộ API Key lên GitHub.
+
 ---
 
 ## 📈 9. ĐÁNH GIÁ KẾT QUẢ THỰC NGHIỆM
