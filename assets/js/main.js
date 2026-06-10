@@ -761,57 +761,59 @@ function updateDashboard() {
     let detailHtml = '';
     if (st.location) {
         detailHtml += `
-            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-                <span class="text-xs text-slate-500 uppercase tracking-wide">Địa bàn</span>
-                <span class="font-medium text-slate-800 text-right text-xs">${st.location}</span>
+            <div class="flex justify-between items-center bg-slate-50/75 hover:bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50 transition duration-200">
+                <span class="text-xs text-slate-500 font-semibold flex items-center gap-1.5">🏢 Địa bàn</span>
+                <span class="font-bold text-slate-700 text-right text-xs">${st.location}</span>
             </div>
         `;
     }
     detailHtml += `
-        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-            <span class="text-xs text-slate-500 uppercase tracking-wide">Tọa độ</span>
-            <span class="font-mono text-xs text-slate-750">${st.lat.toFixed(4)}, ${st.lng.toFixed(4)}</span>
+        <div class="flex justify-between items-center bg-slate-50/75 hover:bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50 transition duration-200">
+            <span class="text-xs text-slate-500 font-semibold flex items-center gap-1.5">🌐 Tọa độ</span>
+            <span class="font-mono text-xs text-slate-700 bg-slate-200/60 px-2 py-0.5 rounded font-bold">${st.lat.toFixed(4)}, ${st.lng.toFixed(4)}</span>
         </div>
     `;
 
     if (st.elevations && (st.elevations.peak > 0 || st.elevations.bed !== 0)) {
         detailHtml += `
-            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-                <span class="text-xs text-slate-500 uppercase tracking-wide">Đỉnh thiết kế</span>
-                <span class="font-medium text-slate-800">${st.elevations.peak} ${unit}</span>
+            <div class="flex justify-between items-center bg-slate-50/75 hover:bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50 transition duration-200">
+                <span class="text-xs text-slate-500 font-semibold flex items-center gap-1.5">📈 Đỉnh thiết kế</span>
+                <span class="font-bold text-slate-700 text-xs">${st.elevations.peak} ${unit}</span>
             </div>
-            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-                <span class="text-xs text-slate-500 uppercase tracking-wide">Chân thiết kế</span>
-                <span class="font-medium text-slate-800">${st.elevations.bed} ${unit}</span>
+            <div class="flex justify-between items-center bg-slate-50/75 hover:bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50 transition duration-200">
+                <span class="text-xs text-slate-500 font-semibold flex items-center gap-1.5">📉 Chân thiết kế</span>
+                <span class="font-bold text-slate-700 text-xs">${st.elevations.bed} ${unit}</span>
             </div>
         `;
     }
 
     if (st.alarms && st.alarms.bd1 > 0) {
         detailHtml += `
-            <div class="flex justify-between items-center border-b border-slate-100 pb-2 bg-slate-50 px-1 py-1 rounded">
-                <span class="text-xs text-slate-500 uppercase tracking-wide">Ngưỡng BĐ 1/2/3</span>
-                <span class="font-bold text-xs text-slate-800">${st.alarms.bd1} / ${st.alarms.bd2} / ${st.alarms.bd3} ${unit}</span>
+            <div class="flex justify-between items-center bg-amber-50/50 hover:bg-amber-100/50 p-2.5 rounded-xl border border-amber-200/60 transition duration-200">
+                <span class="text-xs text-amber-700 font-bold flex items-center gap-1.5">⚠️ Ngưỡng BĐ 1/2/3</span>
+                <span class="font-bold text-xs text-amber-850 bg-amber-100/80 px-2 py-0.5 rounded">${st.alarms.bd1} / ${st.alarms.bd2} / ${st.alarms.bd3} ${unit}</span>
             </div>
         `;
     }
 
     const infoHtml = `
-        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-            <span class="text-xs text-slate-500 uppercase tracking-wide">Mã Trạm</span>
-            <span class="font-bold text-slate-800">${st.id}</span>
-        </div>
-        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-            <span class="text-xs text-slate-500 uppercase tracking-wide">Tên Trạm</span>
-            <span class="font-medium text-slate-800 text-right">${st.name}</span>
-        </div>
-        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-            <span class="text-xs text-slate-500 uppercase tracking-wide">Loại Trạm</span>
-            <span class="font-bold ${st.typeColor}">${st.type}</span>
-        </div>
-        ${detailHtml}
-        <div class="pt-2">
-            <p class="text-xs text-slate-600 leading-relaxed"><strong>Mô tả:</strong> ${st.desc}</p>
+        <div class="space-y-2.5">
+            <div class="flex justify-between items-center bg-slate-50/75 hover:bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50 transition duration-200">
+                <span class="text-xs text-slate-500 font-semibold flex items-center gap-1.5">🔑 Mã Trạm</span>
+                <span class="font-mono text-xs font-bold text-slate-800 bg-slate-200/60 px-2 py-0.5 rounded">${st.id}</span>
+            </div>
+            <div class="flex justify-between items-center bg-slate-50/75 hover:bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50 transition duration-200">
+                <span class="text-xs text-slate-500 font-semibold flex items-center gap-1.5">📍 Tên Trạm</span>
+                <span class="font-bold text-slate-800 text-right text-xs">${st.name}</span>
+            </div>
+            <div class="flex justify-between items-center bg-slate-50/75 hover:bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50 transition duration-200">
+                <span class="text-xs text-slate-500 font-semibold flex items-center gap-1.5">🏷️ Loại Trạm</span>
+                <span class="font-bold text-xs ${st.typeColor}">${st.type}</span>
+            </div>
+            ${detailHtml}
+            <div class="pt-2.5 mt-2 bg-slate-50/30 p-3 rounded-xl border border-slate-200/40">
+                <p class="text-xs text-slate-600 leading-relaxed"><strong class="text-slate-700">📝 Mô tả:</strong> ${st.desc}</p>
+            </div>
         </div>
     `;
     document.getElementById('stationInfoPanel').innerHTML = infoHtml;
@@ -974,22 +976,26 @@ function updateDashboard() {
             }
             
             kpiHtml = `
-                <div class="bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm">
-                    <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Dự báo Mưa Max</div>
+                <div class="kpi-card bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-violet-500">
+                    <span class="absolute top-2 right-2 text-lg opacity-40">🌧️</span>
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Dự báo Mưa Max</div>
                     <div class="text-2xl font-bold text-violet-700">${maxPred > 0 ? maxPred.toFixed(1) : '--'} mm</div>
                 </div>
-                <div class="bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm">
-                    <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Dự báo Mưa TB</div>
+                <div class="kpi-card bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-indigo-500">
+                    <span class="absolute top-2 right-2 text-lg opacity-40">📊</span>
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Dự báo Mưa TB</div>
                     <div class="text-2xl font-bold text-slate-700">${avgPred > 0 ? avgPred.toFixed(1) : '--'} mm</div>
                 </div>
-                <div class="bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm">
-                    <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Dự báo Tổng lượng mưa</div>
+                <div class="kpi-card bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-violet-600">
+                    <span class="absolute top-2 right-2 text-lg opacity-40">⛈️</span>
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Dự báo Tổng lượng mưa</div>
                     <div class="text-2xl font-bold text-violet-700">${totalPred > 0 ? totalPred.toFixed(1) : '--'} mm</div>
                 </div>
-                <div class="bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm">
-                    <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Dự báo thời tiết</div>
+                <div class="kpi-card bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-fuchsia-500">
+                    <span class="absolute top-2 right-2 text-lg opacity-40">🔮</span>
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Dự báo thời tiết</div>
                     <div class="text-xs font-bold flex items-center gap-1.5 mt-2.5 ${rainStatusColor}">
-                        ⛈️ ${rainStatusText}
+                        ${rainStatusText}
                     </div>
                 </div>
             `;
@@ -1008,22 +1014,26 @@ function updateDashboard() {
             }
             
             kpiHtml = `
-                <div class="bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm">
-                    <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Dự báo Mực nước Đỉnh</div>
+                <div class="kpi-card bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-violet-500">
+                    <span class="absolute top-2 right-2 text-lg opacity-40">📈</span>
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Dự báo Mực nước Đỉnh</div>
                     <div class="text-2xl font-bold text-violet-700">${maxPred > 0 ? maxPred.toFixed(1) : '--'} ${unit}</div>
                 </div>
-                <div class="bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm">
-                    <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Dự báo Mực nước Thấp</div>
+                <div class="kpi-card bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-blue-500">
+                    <span class="absolute top-2 right-2 text-lg opacity-40">📉</span>
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Dự báo Mực nước Thấp</div>
                     <div class="text-2xl font-bold text-slate-700">${minPred > 0 ? minPred.toFixed(1) : '--'} ${unit}</div>
                 </div>
-                <div class="bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm">
-                    <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Dự báo Mực nước TB</div>
+                <div class="kpi-card bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-teal-500">
+                    <span class="absolute top-2 right-2 text-lg opacity-40">📊</span>
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Dự báo Mực nước TB</div>
                     <div class="text-2xl font-bold text-violet-700">${avgPred > 0 ? avgPred.toFixed(1) : '--'} ${unit}</div>
                 </div>
-                <div class="bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm">
-                    <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Trạng thái triều cường</div>
+                <div class="kpi-card bg-violet-50/50 p-4 rounded-xl border border-violet-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-fuchsia-500">
+                    <span class="absolute top-2 right-2 text-lg opacity-40">🔮</span>
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Trạng thái triều cường</div>
                     <div class="text-xs font-bold flex items-center gap-1.5 mt-2.5 ${statusColor}">
-                        ⚠️ ${statusText}
+                        ${statusText}
                     </div>
                 </div>
             `;
@@ -1066,20 +1076,24 @@ function updateDashboard() {
         const maxRainStr = maxRain > 0 ? `${maxRain.toFixed(1)} mm` : '--';
 
         kpiHtml = `
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Tổng Lượng Mưa</div>
+            <div class="kpi-card bg-sky-50/50 p-4 rounded-xl border border-sky-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-sky-500">
+                <span class="absolute top-2 right-2 text-lg opacity-40">💧</span>
+                <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Tổng Lượng Mưa</div>
                 <div class="text-2xl font-bold text-sky-600">${totalRainStr}</div>
             </div>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Lượng Mưa Lớn Nhất</div>
+            <div class="kpi-card bg-sky-50/50 p-4 rounded-xl border border-sky-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-sky-400">
+                <span class="absolute top-2 right-2 text-lg opacity-40">🌧️</span>
+                <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Lượng Mưa Lớn Nhất</div>
                 <div class="text-2xl font-bold text-sky-500">${maxRainStr}</div>
             </div>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Số ngày có mưa</div>
+            <div class="kpi-card bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-slate-400">
+                <span class="absolute top-2 right-2 text-lg opacity-40">📅</span>
+                <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Số ngày có mưa</div>
                 <div class="text-2xl font-bold text-slate-700">${rainyDays} ngày</div>
             </div>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Xử lý dữ liệu</div>
+            <div class="kpi-card bg-emerald-50/40 p-4 rounded-xl border border-emerald-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-emerald-500">
+                <span class="absolute top-2 right-2 text-lg opacity-40">⚙️</span>
+                <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Xử lý dữ liệu</div>
                 <div class="text-xs font-semibold text-emerald-700">Lọc ${outliersDetected} điểm nhiễu</div>
                 <div class="text-xs font-semibold text-slate-500 mt-1">Điền ${gapsFilledCount} mốc 3h</div>
             </div>
@@ -1112,23 +1126,27 @@ function updateDashboard() {
         const avgWStr = validWater.length > 0 ? `${avgW.toFixed(2)} ${unit}` : '--';
 
         kpiHtml = `
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 ${isOverBD3 ? 'border-rose-300 bg-rose-50' : ''}">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Mực nước Đỉnh</div>
+            <div class="kpi-card ${isOverBD3 ? 'border-rose-300 bg-rose-50 border-l-rose-500' : 'bg-emerald-50/50 border-emerald-100 border-l-emerald-500'} p-4 rounded-xl border shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4">
+                <span class="absolute top-2 right-2 text-lg opacity-40">📈</span>
+                <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Mực nước Đỉnh</div>
                 <div class="text-2xl font-bold ${isOverBD3 ? 'text-rose-700' : 'text-slate-800'}">${maxWStr}</div>
             </div>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Mực nước Đáy</div>
+            <div class="kpi-card bg-cyan-50/50 p-4 rounded-xl border border-cyan-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-cyan-500">
+                <span class="absolute top-2 right-2 text-lg opacity-40">📉</span>
+                <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Mực nước Đáy</div>
                 <div class="text-2xl font-bold text-slate-800">${minWStr}</div>
             </div>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Xử lý dữ liệu</div>
+            <div class="kpi-card bg-emerald-50/40 p-4 rounded-xl border border-emerald-100 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-emerald-500">
+                <span class="absolute top-2 right-2 text-lg opacity-40">⚙️</span>
+                <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Xử lý dữ liệu</div>
                 <div class="text-xs font-semibold text-emerald-700">Lọc ${outliersDetected} điểm nhiễu</div>
                 <div class="text-xs font-semibold text-slate-500 mt-1">Nội suy ${gapsFilledCount} mốc 3h</div>
             </div>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Tình trạng</div>
-                <div class="text-lg font-bold flex items-center gap-2 ${statusColor}">
-                    ${isOverBD3 ? '⚠️' : ''} ${statusText}
+            <div class="kpi-card bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between relative overflow-hidden border-l-4 border-l-slate-400">
+                <span class="absolute top-2 right-2 text-lg opacity-40">⚠️</span>
+                <div class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Tình trạng</div>
+                <div class="text-xs font-bold flex items-center gap-2 mt-2 ${statusColor}">
+                    ${statusText}
                 </div>
             </div>
         `;
