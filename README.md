@@ -1,7 +1,7 @@
 # ĐỒ ÁN MÔN HỌC: HỆ THỐNG WEBGIS GIÁM SÁT MỰC NƯỚC THỦY VĂN & LƯỢNG MƯA
 
 > **Đề tài:** Xây dựng Dashboard WebGIS giám sát thời gian thực mực nước sông và lượng mưa tích lũy khu vực TP. Hồ Chí Minh kết nối cơ sở dữ liệu Supabase PostgreSQL & PostGIS.
-> **Đối tượng chấm điểm:** Báo cáo khoa học & Sản phẩm thực nghiệm môn học Hệ thống Thông tin Địa lý (GIS) / Phát triển Ứng dụng WebGIS.
+> **Đối tượng chấm điểm:** Báo cáo khoa học & Sản phẩm thực nghiệm môn học phát triển phần mềm GIS mã nguồn mở / Phát triển ứng dụng WebGIS.
 
 ---
 
