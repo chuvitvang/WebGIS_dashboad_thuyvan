@@ -58,10 +58,30 @@ graph TD
 
 ## 🗄️ 3. MÔ HÌNH HÓA DỮ LIỆU (DATABASE SCHEMA)
 
-Cơ sở dữ liệu bao gồm hai bảng quan hệ chính được thiết kế đồng bộ 100% với dữ liệu từ các file Excel thực địa của Sở Tài nguyên & Môi trường:
+Cơ sở dữ liệu bao gồm ba bảng chính được thiết kế đồng bộ 100% với dữ liệu từ các file Excel thực địa của Sở Tài nguyên & Môi trường:
 
-### 3.1. Bảng Trạm Thủy Văn (`tram_thuy_van`)
-Quản lý dữ liệu đo mực nước sông tự động và thông số thiết kế, báo động lũ của trạm:
+### 3.1. Bảng Danh Sách Trạm (`danh_sach_tram`)
+Quản lý thông tin cấu hình tĩnh, tọa độ và các ngưỡng cảnh báo của 16 trạm đo (Mực nước và Lượng mưa):
+
+| Tên Cột | Kiểu Dữ Liệu | Khóa | Mô Tả Ý Nghĩa |
+| :--- | :--- | :--- | :--- |
+| `id` | VARCHAR(100) | Primary Key | Mã định danh trạm (Ví dụ: MN_phu_an, MUA_cat_lai) |
+| `name` | VARCHAR(255) | | Tên trạm (Ví dụ: Phú An, Cát Lái) |
+| `type` | VARCHAR(100) | | Loại trạm (Ví dụ: Trạm mực nước, Trạm đo mưa) |
+| `typeColor` | VARCHAR(100) | | Màu sắc class CSS tương ứng với loại trạm |
+| `dotColor` | VARCHAR(100) | | Màu hex của chấm tròn trạm trên bản đồ Leaflet |
+| `lat` | DOUBLE PRECISION| | Vĩ độ địa lý WGS84 |
+| `lng` | DOUBLE PRECISION| | Kinh độ địa lý WGS84 |
+| `location` | VARCHAR(255) | | Địa bàn hành chính nơi đặt trạm (Xã/Quận/Huyện) |
+| `elevations_peak`| DOUBLE PRECISION|| Độ cao đỉnh công trình thiết kế (m/cm) |
+| `elevations_bed` | DOUBLE PRECISION|| Độ cao chân công trình thiết kế (m/cm) |
+| `desc` | TEXT | | Mô tả tổng hợp dữ liệu trạm |
+| `alarms_bd1` | DOUBLE PRECISION|| Ngưỡng mực nước báo động lũ cấp 1 |
+| `alarms_bd2` | DOUBLE PRECISION|| Ngưỡng mực nước báo động lũ cấp 2 |
+| `alarms_bd3` | DOUBLE PRECISION|| Ngưỡng mực nước báo động lũ cấp 3 |
+
+### 3.2. Bảng Trạm Thủy Văn (`tram_thuy_van`)
+Quản lý dữ liệu đo mực nước sông chi tiết theo chuỗi thời gian:
 
 | Tên Cột | Kiểu Dữ Liệu | Khóa | Mô Tả Ý Nghĩa |
 | :--- | :--- | :--- | :--- |
@@ -80,7 +100,7 @@ Quản lý dữ liệu đo mực nước sông tự động và thông số thi�
 | `viDo` | DOUBLE PRECISION| | Vĩ độ địa lý trạm (WGS84) |
 | `geom` | GEOMETRY(Point, 4326)| | Thuộc tính không gian địa lý lưu điểm tọa độ trạm |
 
-### 3.2. Bảng Trạm Lượng Mưa (`tram_luong_mua`)
+### 3.3. Bảng Trạm Lượng Mưa (`tram_luong_mua`)
 Quản lý thông tin đo đạc lượng mưa tích lũy của các trạm khí tượng:
 
 | Tên Cột | Kiểu Dữ Liệu | Khóa | Mô Tả Ý Nghĩa |
@@ -97,6 +117,7 @@ Quản lý thông tin đo đạc lượng mưa tích lũy của các trạm khí
 | `viDo` | DOUBLE PRECISION| | Vĩ độ địa lý trạm (WGS84) |
 | `geom` | GEOMETRY(Point, 4326)| | Thuộc tính không gian địa lý của trạm mưa |
 
+
 ---
 
 ## 💡 4. CÁC THUẬT TOÁN & KỸ THUẬT TỐI ƯU HÓA TRONG ĐỀ TÀI
@@ -106,7 +127,7 @@ Quản lý thông tin đo đạc lượng mưa tích lũy của các trạm khí
 ### 4.1. Giải pháp Lazy Loading & Caching vượt giới hạn Supabase
 * **Vấn đề thực tế**: Supabase API giới hạn mặc định chỉ trả về tối đa 1000 dòng trên một câu truy vấn để bảo vệ băng thông máy chủ. Tuy nhiên, dữ liệu lịch sử một trạm (như Phú An) kéo dài từ 2008 đến 2022 có hơn 10.000 dòng. Đồng thời, tải toàn bộ dữ liệu 60.000 dòng của tất cả các trạm lúc khởi chạy trang web sẽ làm đơ trình duyệt.
 * **Thuật toán khắc phục**:
-  1. Khi tải trang, hệ thống chỉ lấy danh sách trạm tĩnh siêu nhẹ gồm 16 trạm kèm tọa độ địa lý được lưu trữ sẵn trong [data.js](file:///assets/js/data.js) để vẽ marker ngay lập tức.
+  1. Khi tải trang, hệ thống gửi truy vấn bất đồng bộ đến bảng `danh_sach_tram` của Supabase để lấy cấu hình 16 trạm (tọa độ, tên, ngưỡng cảnh báo) để vẽ các marker lên bản đồ số ngay lập tức.
   2. Khi người dùng click vào một trạm đo cụ thể, client mới kích hoạt truy vấn tải dữ liệu chi tiết của riêng trạm đó bằng câu lệnh `.eq('tenTram', st.name).limit(25000)`. Chỉ số 25.000 đảm bảo lấy trọn vẹn 100% dữ liệu lịch sử qua nhiều năm.
   3. Sau khi tải thành công lần đầu, đối tượng trạm được đánh dấu `st.loaded = true`. Các lần tương tác sau sẽ lấy trực tiếp dữ liệu từ cache RAM của client, loại bỏ hoàn toàn các yêu cầu mạng lặp lại.
 
@@ -123,11 +144,29 @@ Mặc dù dữ liệu trong bảng CSDL được lưu trữ ở dạng phẳng (
 
 ### 5.1. Thiết lập CSDL trên Supabase Cloud
 1. Đăng ký tài khoản miễn phí tại [Supabase](https://supabase.com) và tạo một Project mới.
-2. Truy cập mục **SQL Editor**, tạo một query mới, sao chép toàn bộ mã SQL dưới đây và nhấn **Run** để khởi tạo bảng và trigger PostGIS tự động:
+2. Truy cập mục **SQL Editor**, tạo một query mới, sao chép toàn bộ mã SQL dưới đây và nhấn **Run** để khởi tạo các bảng và trigger PostGIS tự động:
 
 ```sql
 -- Kích hoạt extension không gian địa lý PostGIS
 CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- Tạo bảng danh sách trạm
+CREATE TABLE danh_sach_tram (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(100),
+    "typeColor" VARCHAR(100),
+    "dotColor" VARCHAR(100),
+    lat DOUBLE PRECISION,
+    lng DOUBLE PRECISION,
+    location VARCHAR(255),
+    elevations_peak DOUBLE PRECISION,
+    elevations_bed DOUBLE PRECISION,
+    "desc" TEXT,
+    alarms_bd1 DOUBLE PRECISION,
+    alarms_bd2 DOUBLE PRECISION,
+    alarms_bd3 DOUBLE PRECISION
+);
 
 -- Tạo bảng dữ liệu trạm thủy văn
 CREATE TABLE tram_thuy_van (
@@ -210,11 +249,14 @@ BEFORE INSERT OR UPDATE ON tram_luong_mua
 FOR EACH ROW EXECUTE FUNCTION update_geom_rain_coordinates();
 
 -- VÔ HIỆU HÓA RLS ĐỂ CHO PHÉP CLIENT TRUY CẬP CÔNG KHAI
+ALTER TABLE danh_sach_tram DISABLE ROW LEVEL SECURITY;
 ALTER TABLE tram_thuy_van DISABLE ROW LEVEL SECURITY;
 ALTER TABLE tram_luong_mua DISABLE ROW LEVEL SECURITY;
 ```
 
-3. Vào mục **Table Editor** trên Supabase, tải các file dữ liệu dạng `.csv` (được xuất ra từ file Excel thực địa của bạn) lên tương ứng 2 bảng `tram_thuy_van` và `tram_luong_mua`.
+3. Vào mục **Table Editor** trên Supabase và tải các file dữ liệu dạng `.csv` lên tương ứng 3 bảng:
+   * Bảng `danh_sach_tram`: Tải lên tệp CSV mẫu đã xuất sẵn tại `C:\Users\admin\Downloads\danh_sach_tram.csv`.
+   * Bảng `tram_thuy_van` và `tram_luong_mua`: Tải lên các file dữ liệu đo đạc thực địa thủy văn và đo mưa tương ứng.
 
 ### 5.2. Cấu hình khóa kết nối API bảo mật
 Để đảm bảo an toàn thông tin và không bị lộ khóa kết nối (Credentials) lên GitHub:
