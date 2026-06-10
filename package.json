@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Hệ thống giám sát mực nước WebGIS",
   "main": "index.html",
+  "scripts": {
+    "build": "node build.js"
+  },
   "keywords": [
     "gis",
     "dashboard",
