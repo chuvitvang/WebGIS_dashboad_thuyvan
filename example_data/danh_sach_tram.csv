@@ -1,0 +1,17 @@
+﻿id,name,type,typeColor,dotColor,lat,lng,location,elevations_peak,elevations_bed,desc,alarms_bd1,alarms_bd2,alarms_bd3
+MN_phu_an,"Phú An","Trạm mực nước",text-emerald-600,#10b981,10.77861111,106.7077778,"Quận 2, TP. Hồ Chí Minh",1.01,-0.93,"Tổng hợp số liệu quan trắc mực nước sông trạm Phú An (2008-2022).",1,1.3,1.5
+MN_nha_be,"Nhà Bè","Trạm mực nước",text-emerald-600,#10b981,10.63944444,106.7347222,"Huyện Nhà Bè, TP. Hồ Chí Minh",0.92,-1.02,"Tổng hợp số liệu quan trắc mực nước sông trạm Nhà Bè (2008-2022).",1,1.3,1.5
+MUA_an_phu,"An Phú","Trạm đo mưa",text-sky-600,#0284c7,11.111667,106.506667,"UBND Xã An Phú, Huyện Củ Chi",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm An Phú.",0,0,0
+MUA_binh_chanh,"Bình Chánh","Trạm đo mưa",text-sky-600,#0284c7,10.691111,106.5725,"UBND Thị trấn Tân Túc, Huyện Bình Chánh",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Bình Chánh.",0,0,0
+MUA_can_gio,"Cần Giờ","Trạm đo mưa",text-sky-600,#0284c7,10.409755,106.964243,"UBND Thị trấn Cần Thạnh, Huyện Cần Giờ",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Cần Giờ.",0,0,0
+MUA_cat_lai,"Cát Lái","Trạm đo mưa",text-sky-600,#0284c7,10.770833,106.770278,"UBND Phường Thạnh Mỹ Lợi, Quận 2",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Cát Lái.",0,0,0
+MUA_cu_chi,"Củ Chi","Trạm đo mưa",text-sky-600,#0284c7,10.955556,106.512778,"UBND Xã Tân Thông Hội, Huyện Củ Chi",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Củ Chi.",0,0,0
+MUA_hoc_mon,"Hóc Môn","Trạm đo mưa",text-sky-600,#0284c7,10.88819,106.598219,"UBND Thị trấn Hóc Môn, Huyện Hóc Môn",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Hóc Môn.",0,0,0
+MUA_le_minh_xuan,"Lê Minh Xuân","Trạm đo mưa",text-sky-600,#0284c7,10.777222,106.537222,"UBND Xã Lê Minh Xuân, Huyện Bình Chánh",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Lê Minh Xuân.",0,0,0
+MUA_nha_be_synop,"Nhà Bè Synop","Trạm đo mưa (Synop)",text-sky-600,#0284c7,10.6575,106.7322222,"249 Nguyễn Văn Tạo, Xã Long Thới, Huyện Nhà Bè",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Nhà Bè Synop.",0,0,0
+MUA_nha_be,"Nhà Bè","Trạm đo mưa",text-sky-600,#0284c7,10.678056,106.753889,"UBND Xã Phú Xuân, Huyện Nhà Bè",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Nhà Bè.",0,0,0
+MUA_pham_van_coi,"Phạm Văn Cội","Trạm đo mưa",text-sky-600,#0284c7,11.038056,106.522222,"UBND Xã Phạm Văn Cội, Huyện Củ Chi",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Phạm Văn Cội.",0,0,0
+MUA_tam_thon_hiep,"Tam Thôn Hiệp","Trạm đo mưa",text-sky-600,#0284c7,10.597706,106.859726,"UBND Xã Tam Thôn Hiệp, Huyện Cần Giờ",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Tam Thôn Hiệp.",0,0,0
+MUA_thu_duc,"Thủ Đức","Trạm đo mưa",text-sky-600,#0284c7,10.844789,106.755827,"Khu phố 2, Phường Trường Thọ, Quận Thủ Đức",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Thủ Đức.",0,0,0
+MUA_mac_dinh_chi,"Mạc Đĩnh Chi","Trạm đo mưa",text-sky-600,#0284c7,10.78416667,106.7002778,"08 Mạc Đĩnh Chi, P. Bến Nghé, Quận 1",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Mạc Đĩnh Chi.",0,0,0
+MUA_tan_son_hoa,"Tân Sơn Hòa","Trạm đo mưa",text-sky-600,#0284c7,10.79638889,106.6666667,"236B Lê Văn Sỹ, P. 1, Quận Tân Bình",0,0,"Tổng hợp số liệu đo đạc lượng mưa trạm Tân Sơn Hòa (2008-2021).",0,0,0

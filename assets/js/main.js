@@ -1,63 +1,19 @@
-let currentStation = '74129';
+let currentStation = '';
 let currentMode = 'raw';
 let chartInstance = null;
 let leafletMap = null;
 let mapMarkers = {};
+let stations = {};
 
-// Initialize Leaflet Map
+// Initialize Leaflet Map (Khởi tạo bản đồ trống quanh khu vực TP. Hồ Chí Minh)
 function initMap() {
-    // Center map roughly on Yen Bai / Red River delta area
-    leafletMap = L.map('gisMap').setView([21.6, 104.7], 9);
+    leafletMap = L.map('gisMap').setView([10.77, 106.70], 10);
 
     // Add Esri World Topo Map for a nice terrain look
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
         attribution: 'Tiles &copy; Esri',
         maxZoom: 18
     }).addTo(leafletMap);
-
-    // Add markers
-    for (const key in stations) {
-        const st = stations[key];
-
-        // Cú pháp được sửa lỗi, không còn dấu gạch chéo ngược (\)
-        const iconHtml = `
-            <div style="position: relative;">
-                ${key === currentStation ? '<div class="marker-pulse"></div>' : ''}
-                <div class="marker-pin" style="background-color: ${st.dotColor}; ${key === currentStation ? 'transform: translate(-50%, -50%) scale(1.2); border-color: #0f172a;' : ''}"></div>
-            </div>
-        `;
-
-        const customIcon = L.divIcon({
-            html: iconHtml,
-            className: 'leaflet-div-icon',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
-        });
-
-        const marker = L.marker([st.lat, st.lng], { icon: customIcon }).addTo(leafletMap);
-
-        // Add tooltip
-        marker.bindTooltip(`<b>${st.id}</b><br>${st.name}`, {
-            direction: 'top',
-            offset: [0, -10]
-        });
-
-        // Click event
-        marker.on('click', () => {
-            currentStation = key;
-            updateMapMarkers();
-            leafletMap.panTo([st.lat, st.lng]);
-            updateDateFilterOptions();
-            if (!isManualFilterApplied) {
-                setDefaultDateRange();
-            } else {
-                syncDropdownsToManualFilter();
-            }
-            updateDashboard();
-        });
-
-        mapMarkers[key] = marker;
-    }
 }
 
 function updateMapMarkers() {
@@ -696,13 +652,50 @@ async function loadStationData(stId) {
 async function loadDataFromSupabase() {
     if (!supabaseClient) return;
     try {
-        console.log("Đang đồng bộ dữ liệu thực địa từ Supabase...");
-
-        // Khởi tạo lại trạng thái loaded của các trạm
-        for (const key in stations) {
-            stations[key].loaded = false;
-            stations[key].chartData = { labels: [], dates: [], raw: [], rainfallRaw: [] };
+        console.log("Đang tải danh sách trạm từ Supabase...");
+        
+        // 1. Tải danh sách trạm từ bảng danh_sach_tram
+        const { data: stationsData, error: stationsError } = await supabaseClient
+            .from('danh_sach_tram')
+            .select('*');
+            
+        if (stationsError) {
+            throw new Error("Không thể tải danh sách trạm: " + stationsError.message);
         }
+        
+        if (!stationsData || stationsData.length === 0) {
+            throw new Error("Không có dữ liệu trạm nào trong bảng danh_sach_tram!");
+        }
+
+        // 2. Chuyển đổi dữ liệu sang cấu trúc stations
+        stations = {};
+        stationsData.forEach(row => {
+            stations[row.id] = {
+                id: row.id,
+                name: row.name,
+                type: row.type,
+                typeColor: row.typeColor,
+                dotColor: row.dotColor,
+                lat: row.lat,
+                lng: row.lng,
+                location: row.location,
+                elevations: {
+                    peak: row.elevations_peak || 0,
+                    bed: row.elevations_bed || 0
+                },
+                desc: row.desc || '',
+                alarms: {
+                    bd1: row.alarms_bd1 || 0,
+                    bd2: row.alarms_bd2 || 0,
+                    bd3: row.alarms_bd3 || 0
+                },
+                chartData: { labels: [], dates: [], raw: [], rainfallRaw: [] },
+                loaded: false
+            };
+        });
+
+        console.log(`Đã tải thành công ${Object.keys(stations).length} trạm từ Supabase.`);
+        console.log("Đang đồng bộ dữ liệu thực địa từ Supabase...");
 
         // Chọn trạm mặc định đầu tiên
         currentStation = Object.keys(stations)[0];
@@ -772,9 +765,10 @@ async function loadDataFromSupabase() {
         }
 
         updateDashboard();
-        console.log("Đã vẽ đầy đủ 16 trạm đo thực tế lên bản đồ và tải xong dữ liệu trạm mặc định!");
+        console.log("Đã vẽ đầy đủ trạm đo thực tế lên bản đồ và tải xong dữ liệu trạm mặc định!");
     } catch (e) {
         console.error("Lỗi đồng bộ dữ liệu Supabase:", e.message);
     }
 }
+
 
