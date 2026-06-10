@@ -496,10 +496,15 @@ function updateDashboard() {
     `;
     document.getElementById('kpiContainer').innerHTML = kpiHtml;
 
-    // 4. Vẽ biểu đồ hỗn hợp (Mực nước: Line màu xanh lá, Lượng mưa: Bar màu xanh dương)
+    // 4. Vẽ biểu đồ hỗn hợp động dựa theo loại trạm (Mực nước: Line màu xanh lá, Lượng mưa: Bar màu xanh dương)
     chartInstance.data.labels = labels;
-    chartInstance.data.datasets = [
-        {
+    
+    const datasets = [];
+    const isRainStation = st.type === 'Trạm đo mưa' || st.type.includes('mưa');
+
+    // Chỉ vẽ đường Mực nước nếu trạm không phải là trạm đo lượng mưa thuần túy
+    if (!isRainStation && validWater.length > 0) {
+        datasets.push({
             type: 'line',
             label: `Mực nước (${unit})`,
             data: waterData,
@@ -512,8 +517,12 @@ function updateDashboard() {
             spanGaps: true,
             fill: true,
             yAxisID: 'y'
-        },
-        {
+        });
+    }
+
+    // Chỉ vẽ cột Lượng mưa nếu là trạm đo mưa hoặc trạm mực nước có ghi nhận dữ liệu lượng mưa
+    if (isRainStation || validRain.length > 0) {
+        datasets.push({
             type: 'bar',
             label: 'Lượng mưa (mm)',
             data: rainData,
@@ -523,70 +532,123 @@ function updateDashboard() {
             borderRadius: 4,
             yAxisID: 'y1',
             spanGaps: true
-        }
-    ];
+        });
+    }
 
-    // Thiết lập giới hạn tự động cho trục Mực nước
+    chartInstance.data.datasets = datasets;
+
+    // Thiết lập giới hạn tự động cho trục Mực nước (bao gồm cả Đỉnh/Chân thiết kế nếu có)
     let yMin = 0;
     let yMax = 100;
     if (validWater.length > 0) {
-        const minVal = Math.min(...validWater);
-        const maxVal = Math.max(...validWater);
+        let minVal = Math.min(...validWater);
+        let maxVal = Math.max(...validWater);
+        
+        // Đưa đỉnh và chân thiết kế vào tính toán khoảng trục Y để đảm bảo chúng luôn hiển thị
+        if (st.elevations) {
+            if (st.elevations.peak > 0) {
+                maxVal = Math.max(maxVal, st.elevations.peak);
+            }
+            if (st.elevations.bed !== 0) {
+                minVal = Math.min(minVal, st.elevations.bed);
+            }
+        }
+        
         const diff = maxVal - minVal;
-        yMin = minVal - (diff * 0.1 || 1);
-        yMax = maxVal + (diff * 0.1 || 1);
+        yMin = minVal - (diff * 0.15 || 1);
+        yMax = maxVal + (diff * 0.15 || 1);
         if (yMin < 0 && minVal >= 0) yMin = 0;
     } else {
         yMin = 0;
         yMax = 10;
     }
 
+    // Bật/tắt hiển thị trục Y động tùy theo loại trạm đang xem
+    if (isRainStation) {
+        chartInstance.options.scales.y.display = false;   // Ẩn trục mực nước bên trái
+        chartInstance.options.scales.y1.display = true;   // Hiển thị trục lượng mưa bên phải
+    } else {
+        chartInstance.options.scales.y.display = true;    // Hiển thị trục mực nước bên trái
+        chartInstance.options.scales.y1.display = validRain.length > 0; // Chỉ hiển thị lượng mưa nếu có dữ liệu
+    }
+
     chartInstance.options.scales.y.title.text = `Mực nước (${unit})`;
-    chartInstance.options.scales.y.min = Math.floor(yMin);
-    chartInstance.options.scales.y.max = Math.ceil(yMax);
+    chartInstance.options.scales.y.min = Math.floor(yMin * 10) / 10;
+    chartInstance.options.scales.y.max = Math.ceil(yMax * 10) / 10;
 
     // Thiết lập giới hạn tự động cho trục Lượng mưa (trục phải)
     chartInstance.options.scales.y1.max = Math.ceil((maxRain * 1.2 || 10) / 10) * 10;
 
-    // Vẽ động các ngưỡng báo động lũ (nếu lớn hơn 0)
+    // Vẽ động các đường giới hạn thiết kế và cảnh báo lũ (chỉ vẽ đối với trạm đo mực nước)
     const annotations = {};
-    const labelBg1 = 'rgba(245, 158, 11, 0.8)';
-    const labelBg2 = 'rgba(234, 88, 12, 0.8)';
-    const labelBg3 = 'rgba(225, 29, 72, 0.8)';
+    
+    if (!isRainStation) {
+        const labelBg1 = 'rgba(245, 158, 11, 0.85)';
+        const labelBg2 = 'rgba(234, 88, 12, 0.85)';
+        const labelBg3 = 'rgba(225, 29, 72, 0.85)';
+        const labelBgPeak = 'rgba(71, 85, 105, 0.85)';  // Slate 600 cho Đỉnh thiết kế
+        const labelBgBed = 'rgba(100, 116, 139, 0.85)';   // Slate 500 cho Chân thiết kế
 
-    if (st.alarms.bd1 && st.alarms.bd1 > 0) {
-        annotations.bd1 = {
-            type: 'line',
-            yMin: st.alarms.bd1,
-            yMax: st.alarms.bd1,
-            borderColor: '#f59e0b',
-            borderWidth: 1.5,
-            borderDash: [5, 5],
-            label: { content: 'Báo động 1', display: true, position: 'start', backgroundColor: labelBg1 }
-        };
+        // 1. Vẽ Đỉnh & Chân thiết kế của công trình (nếu có thông số)
+        if (st.elevations && st.elevations.peak > 0) {
+            annotations.peakElevation = {
+                type: 'line',
+                yMin: st.elevations.peak,
+                yMax: st.elevations.peak,
+                borderColor: '#475569',
+                borderWidth: 1.5,
+                borderDash: [4, 4],
+                label: { content: 'Đỉnh thiết kế', display: true, position: 'end', backgroundColor: labelBgPeak }
+            };
+        }
+        if (st.elevations && st.elevations.bed !== 0) {
+            annotations.bedElevation = {
+                type: 'line',
+                yMin: st.elevations.bed,
+                yMax: st.elevations.bed,
+                borderColor: '#64748b',
+                borderWidth: 1.5,
+                borderDash: [4, 4],
+                label: { content: 'Chân thiết kế', display: true, position: 'end', backgroundColor: labelBgBed }
+            };
+        }
+
+        // 2. Vẽ các ngưỡng báo động lũ (nếu có thông số)
+        if (st.alarms.bd1 && st.alarms.bd1 > 0) {
+            annotations.bd1 = {
+                type: 'line',
+                yMin: st.alarms.bd1,
+                yMax: st.alarms.bd1,
+                borderColor: '#f59e0b',
+                borderWidth: 1.5,
+                borderDash: [5, 5],
+                label: { content: 'Báo động 1', display: true, position: 'start', backgroundColor: labelBg1 }
+            };
+        }
+        if (st.alarms.bd2 && st.alarms.bd2 > 0) {
+            annotations.bd2 = {
+                type: 'line',
+                yMin: st.alarms.bd2,
+                yMax: st.alarms.bd2,
+                borderColor: '#ea580c',
+                borderWidth: 1.5,
+                borderDash: [5, 5],
+                label: { content: 'Báo động 2', display: true, position: 'start', backgroundColor: labelBg2 }
+            };
+        }
+        if (st.alarms.bd3 && st.alarms.bd3 > 0) {
+            annotations.bd3 = {
+                type: 'line',
+                yMin: st.alarms.bd3,
+                yMax: st.alarms.bd3,
+                borderColor: '#e11d48',
+                borderWidth: 1.5,
+                borderDash: [5, 5],
+                label: { content: 'Báo động 3', display: true, position: 'start', backgroundColor: labelBg3 }
+            };
+        }
     }
-    if (st.alarms.bd2 && st.alarms.bd2 > 0) {
-        annotations.bd2 = {
-            type: 'line',
-            yMin: st.alarms.bd2,
-            yMax: st.alarms.bd2,
-            borderColor: '#ea580c',
-            borderWidth: 1.5,
-            borderDash: [5, 5],
-            label: { content: 'Báo động 2', display: true, position: 'start', backgroundColor: labelBg2 }
-        };
-    }
-    if (st.alarms.bd3 && st.alarms.bd3 > 0) {
-        annotations.bd3 = {
-            type: 'line',
-            yMin: st.alarms.bd3,
-            yMax: st.alarms.bd3,
-            borderColor: '#e11d48',
-            borderWidth: 1.5,
-            borderDash: [5, 5],
-            label: { content: 'Báo động 3', display: true, position: 'start', backgroundColor: labelBg3 }
-        };
-    }
+    
     chartInstance.options.plugins.annotation.annotations = annotations;
     chartInstance.update();
 }
