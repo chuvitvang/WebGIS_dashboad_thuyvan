@@ -275,9 +275,18 @@ ALTER TABLE tram_luong_mua DISABLE ROW LEVEL SECURITY;
    *(Tệp `config.js` đã được thêm vào `.gitignore` nên sẽ không bao giờ bị đẩy lên GitHub)*
 
 
-### 5.3. Khởi chạy thử nghiệm
-* **Chạy Local**: Mở tệp `index.html` trực tiếp bằng trình duyệt Web hoặc sử dụng công cụ **Live Server** trên VS Code.
-* **Triển khai Production**: Nhờ có cấu hình định tuyến sẵn trong `vercel.json`, bạn có thể đẩy mã nguồn lên GitHub và kết nối với **Vercel** để deploy trực tuyến miễn phí chỉ trong một click chuột.
+### 5.3. Khởi chạy thử nghiệm & Triển khai Production (Vercel)
+
+* **Chạy dưới Local**: Mở tệp `index.html` trực tiếp bằng trình duyệt Web hoặc sử dụng công cụ **Live Server** trên VS Code để khởi chạy dự án tại local.
+* **Triển khai Production (Vercel)**:
+  Hệ thống được thiết kế cơ chế tự động sinh file cấu hình `assets/js/config.js` lúc Vercel build thông qua Node.js để bảo mật API key:
+  1. Đẩy toàn bộ mã nguồn (đã có `build.js` và `package.json`) lên GitHub.
+  2. Truy cập vào **Vercel Dashboard**, chọn dự án của bạn và chuyển đến tab **Settings** -> **Environment Variables**.
+  3. Thêm 2 biến môi trường sau:
+     * **Key**: `SUPABASE_URL` | **Value**: *[URL dự án Supabase của bạn]*
+     * **Key**: `SUPABASE_ANON_KEY` | **Value**: *[Anon Key dự án Supabase của bạn]*
+  4. Tiến hành **Deploy** hoặc **Redeploy** trên Vercel. Lệnh build `npm run build` (chạy `node build.js`) sẽ tự sinh ra tệp `config.js` an toàn tại production để kết nối cơ sở dữ liệu.
+
 
 ---
 
