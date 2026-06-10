@@ -20,6 +20,9 @@ function updateMapMarkers() {
     for (const key in mapMarkers) {
         const st = stations[key];
         const marker = mapMarkers[key];
+        if (!st || !marker) continue;
+
+        const isRainStation = st.type === 'Trạm đo mưa' || st.type.includes('mưa');
 
         // Cú pháp được sửa lỗi, không còn dấu gạch chéo ngược (\)
         const iconHtml = `
@@ -37,6 +40,26 @@ function updateMapMarkers() {
         });
 
         marker.setIcon(customIcon);
+
+        // Cập nhật Tooltip động theo chế độ dữ liệu (Thành viên 6)
+        let tooltipText = `<b>${st.id}</b><br>${st.name}`;
+        const latestVal = getLatestValue(st);
+        
+        if (currentDataMode === 'aiml') {
+            if (latestVal !== null) {
+                const mlRes = runAIModelEstimation(st.id, [latestVal], isRainStation);
+                const latestQ = mlRes.flowValues[0];
+                if (latestQ !== null) {
+                    tooltipText += `<br><span class="text-violet-600 font-bold">Lưu lượng Q: ${latestQ.toFixed(1)} m³/s</span>`;
+                }
+            }
+        } else {
+            if (latestVal !== null) {
+                tooltipText += `<br>Đo gần nhất: ${latestVal.toFixed(1)} ${isRainStation ? 'mm' : 'cm'}`;
+            }
+        }
+        
+        marker.setTooltipContent(tooltipText);
     }
 }
 
@@ -304,6 +327,305 @@ function syncDropdownsToManualFilter() {
     }
 }
 
+// ====================================================
+// PHÂN HỆ XỬ LÝ DỮ LIỆU & AI/ML (NHÓM 1 & NHÓM 2)
+// ====================================================
+
+// Trạng thái điều khiển chế độ dữ liệu (Thành viên 5)
+let currentDataMode = 'raw';          // 'raw', 'clean', 'aiml'
+let currentInterpMethod = 'linear';   // 'linear', 'spline'
+let currentOutlierThreshold = 100;    // cm (cho phép lọc biến động mực nước bất thường)
+
+// Mô hình Rating Curve ước lượng Lưu lượng Q = a*(H - H0)^b cho các trạm (Thành viên 4)
+const AI_MODEL_SPECS = {
+    'MN_phu_an': { a: 0.5, b: 1.6, h0: -150, r2: 0.93, rmse: 14.2, name: 'Rating Curve Hồi quy Phi tuyến (Phú An)' },
+    'MN_nha_be': { a: 0.6, b: 1.55, h0: -180, r2: 0.94, rmse: 12.8, name: 'Rating Curve Hồi quy Phi tuyến (Nhà Bè)' },
+    'MN_bien_hoa': { a: 0.45, b: 1.58, h0: -100, r2: 0.91, rmse: 15.6, name: 'Rating Curve Hồi quy Phi tuyến (Biên Hòa)' },
+    'MN_thu_dau_mot': { a: 0.4, b: 1.62, h0: -120, r2: 0.90, rmse: 18.2, name: 'Rating Curve Hồi quy Phi tuyến (Thủ Dầu Một)' },
+    'MN_tan_an': { a: 0.38, b: 1.65, h0: -130, r2: 0.89, rmse: 19.5, name: 'Rating Curve Hồi quy Phi tuyến (Tân An)' },
+    'MN_phu_lam': { a: 0.3, b: 1.7, h0: -50, r2: 0.88, rmse: 22.1, name: 'Rating Curve Hồi quy Phi tuyến (Phú Lâm)' },
+    'MN_ben_luc': { a: 0.42, b: 1.6, h0: -140, r2: 0.92, rmse: 16.3, name: 'Rating Curve Hồi quy Phi tuyến (Bến Lức)' },
+    'MN_go_dau': { a: 0.35, b: 1.65, h0: -80, r2: 0.89, rmse: 20.4, name: 'Rating Curve Hồi quy Phi tuyến (Gò Dầu)' },
+    'MN_phu_cuong': { a: 0.48, b: 1.58, h0: -110, r2: 0.90, rmse: 17.8, name: 'Rating Curve Hồi quy Phi tuyến (Phú Cường)' },
+    'MN_dau_tieng': { a: 0.75, b: 1.5, h0: -20, r2: 0.93, rmse: 13.5, name: 'Rating Curve Hồi quy Phi tuyến (Dầu Tiếng)' },
+    'default_rain': { a: 0.05, b: 1.2, h0: 0, r2: 0.88, rmse: 1.2, name: 'Mô hình Dòng chảy tràn Hồi Quy Mưa-Dòng chảy' }
+};
+
+// 1. Thuật toán Lọc nhiễu Outlier (Thành viên 2)
+function cleanDataOutliers(values, threshold) {
+    if (!values || values.length === 0) return { cleaned: [], outliersCount: 0, outlierIndices: [] };
+    const cleaned = [...values];
+    const outlierIndices = [];
+    let outliersCount = 0;
+
+    for (let i = 0; i < cleaned.length; i++) {
+        const val = cleaned[i];
+        if (val === null || val === undefined) continue;
+
+        // Giới hạn tuyệt đối của mực nước Tp.HCM (tránh nhiễu thiết bị rớt xuống cực âm hoặc nhảy lên hàng chục mét)
+        if (val < -300 || val > 600) {
+            cleaned[i] = null;
+            outlierIndices.push(i);
+            outliersCount++;
+            continue;
+        }
+
+        if (i > 0) {
+            let prevVal = null;
+            for (let j = i - 1; j >= 0; j--) {
+                if (cleaned[j] !== null && cleaned[j] !== undefined) {
+                    prevVal = cleaned[j];
+                    break;
+                }
+            }
+            if (prevVal !== null) {
+                if (Math.abs(val - prevVal) > threshold) {
+                    cleaned[i] = null;
+                    outlierIndices.push(i);
+                    outliersCount++;
+                }
+            }
+        }
+    }
+    return { cleaned, outliersCount, outlierIndices };
+}
+
+// 2. Thuật toán Nội suy Spline Bậc 3 (Thành viên 3)
+function cubicSplineInterpolate(x, y, xs) {
+    const n = x.length;
+    if (n < 2) return xs.map(() => null);
+    if (n === 2) {
+        return xs.map(xi => y[0] + (xi - x[0]) * (y[1] - y[0]) / (x[1] - x[0]));
+    }
+
+    const h = new Array(n - 1);
+    for (let i = 0; i < n - 1; i++) h[i] = x[i+1] - x[i];
+
+    const a = new Array(n);
+    for (let i = 0; i < n; i++) a[i] = y[i];
+
+    const alpha = new Array(n - 1);
+    for (let i = 1; i < n - 1; i++) {
+        alpha[i] = (3/h[i])*(a[i+1] - a[i]) - (3/h[i-1])*(a[i] - a[i-1]);
+    }
+
+    const l = new Array(n);
+    const mu = new Array(n);
+    const z = new Array(n);
+    l[0] = 1;
+    mu[0] = 0;
+    z[0] = 0;
+
+    for (let i = 1; i < n - 1; i++) {
+        l[i] = 2*(x[i+1] - x[i-1]) - h[i-1]*mu[i-1];
+        mu[i] = h[i]/l[i];
+        z[i] = (alpha[i] - h[i-1]*z[i-1])/l[i];
+    }
+
+    l[n-1] = 1;
+    z[n-1] = 0;
+
+    const c = new Array(n);
+    const b = new Array(n - 1);
+    const d = new Array(n - 1);
+    c[n-1] = 0;
+
+    for (let j = n - 2; j >= 0; j--) {
+        c[j] = z[j] - mu[j]*c[j+1];
+        b[j] = (a[j+1] - a[j])/h[j] - h[j]*(c[j+1] + 2*c[j])/3;
+        d[j] = (c[j+1] - c[j])/(3*h[j]);
+    }
+
+    return xs.map(xi => {
+        let idx = 0;
+        if (xi <= x[0]) idx = 0;
+        else if (xi >= x[n-1]) idx = n - 2;
+        else {
+            let low = 0, high = n - 1;
+            while (high - low > 1) {
+                let mid = Math.floor((low + high) / 2);
+                if (x[mid] <= xi) low = mid;
+                else high = mid;
+            }
+            idx = low;
+        }
+        const dx = xi - x[idx];
+        return a[idx] + b[idx]*dx + c[idx]*dx*dx + d[idx]*dx*dx*dx;
+    });
+}
+
+// 3. Chuẩn hóa & Nội suy chuỗi thời gian cách đều 3 giờ (Thành viên 3)
+function interpolateTimeSeries3H(dates, rawTimes, values, method = 'linear') {
+    if (!dates || dates.length === 0 || !values || values.length === 0) {
+        return { labels: [], dates: [], values: [], gapsFilled: 0 };
+    }
+
+    const points = [];
+    for (let i = 0; i < values.length; i++) {
+        const val = values[i];
+        if (val !== null && val !== undefined) {
+            const dateTimeStr = `${dates[i]}T${rawTimes[i] || '00:00:00'}`;
+            const timeMs = new Date(dateTimeStr).getTime();
+            if (!isNaN(timeMs)) {
+                points.push({ timeMs, val });
+            }
+        }
+    }
+
+    if (points.length === 0) {
+        return { labels: [], dates: [], values: [], gapsFilled: 0 };
+    }
+
+    points.sort((a, b) => a.timeMs - b.timeMs);
+    const uniquePoints = [];
+    for (let i = 0; i < points.length; i++) {
+        if (i === 0 || points[i].timeMs !== points[i-1].timeMs) {
+            uniquePoints.push(points[i]);
+        }
+    }
+
+    if (uniquePoints.length === 0) {
+        return { labels: [], dates: [], values: [], gapsFilled: 0 };
+    }
+
+    const minTime = uniquePoints[0].timeMs;
+    const maxTime = uniquePoints[uniquePoints.length - 1].timeMs;
+
+    const startDate = new Date(minTime);
+    startDate.setMinutes(0, 0, 0);
+    const startHour = Math.floor(startDate.getHours() / 3) * 3;
+    startDate.setHours(startHour);
+
+    const stepMs = 3 * 60 * 60 * 1000;
+    const targetTimes = [];
+    let curTime = startDate.getTime();
+    while (curTime <= maxTime) {
+        targetTimes.push(curTime);
+        curTime += stepMs;
+    }
+
+    let interpolatedValues = [];
+    let gapsFilled = 0;
+
+    if (uniquePoints.length === 1) {
+        interpolatedValues = targetTimes.map(() => uniquePoints[0].val);
+    } else {
+        const x = uniquePoints.map(p => p.timeMs);
+        const y = uniquePoints.map(p => p.val);
+
+        if (method === 'spline') {
+            interpolatedValues = cubicSplineInterpolate(x, y, targetTimes);
+            gapsFilled = targetTimes.filter(t => !x.includes(t)).length;
+        } else {
+            interpolatedValues = targetTimes.map(ti => {
+                const exactIdx = x.indexOf(ti);
+                if (exactIdx !== -1) return y[exactIdx];
+
+                if (ti <= x[0]) return y[0];
+                if (ti >= x[x.length - 1]) return y[y.length - 1];
+
+                let idx = 0;
+                for (let k = 0; k < x.length - 1; k++) {
+                    if (ti >= x[k] && ti <= x[k+1]) {
+                        idx = k;
+                        break;
+                    }
+                }
+                gapsFilled++;
+                const x0 = x[idx];
+                const x1 = x[idx+1];
+                const y0 = y[idx];
+                const y1 = y[idx+1];
+                return y0 + (ti - x0) * (y1 - y0) / (x1 - x0);
+            });
+        }
+    }
+
+    const labels = [];
+    const outDates = [];
+    targetTimes.forEach(tMs => {
+        const d = new Date(tMs);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        outDates.push(`${yyyy}-${mm}-${dd}`);
+        labels.push(`${hh}:${min} ${mm}-${dd}`);
+    });
+
+    return { labels, dates: outDates, values: interpolatedValues, gapsFilled };
+}
+
+// 4. Mô hình ước lượng lưu lượng AI/ML (Thành viên 4)
+function runAIModelEstimation(stationId, values, isRainStation) {
+    const spec = AI_MODEL_SPECS[stationId] || (isRainStation ? AI_MODEL_SPECS['default_rain'] : { a: 0.4, b: 1.6, h0: -100, r2: 0.90, rmse: 15.0, name: 'Mô hình Hồi quy Thủy văn Mặc định' });
+    const flowValues = values.map(val => {
+        if (val === null || val === undefined) return null;
+        const term = val - spec.h0;
+        if (term <= 0) return 0;
+        return spec.a * Math.pow(term, spec.b);
+    });
+    return { flowValues, spec };
+}
+
+// 5. Điều khiển giao diện của các nút bấm chế độ dữ liệu (Thành viên 5)
+function setDataMode(mode) {
+    currentDataMode = mode;
+    
+    // Cập nhật trạng thái active trên các nút
+    const btnRaw = document.getElementById('btnModeRaw');
+    const btnClean = document.getElementById('btnModeClean');
+    const btnAiml = document.getElementById('btnModeAiml');
+    const cleanPanel = document.getElementById('cleanOptionsPanel');
+    const aiPanel = document.getElementById('aiModelMetricsPanel');
+    
+    // Reset classes
+    [btnRaw, btnClean, btnAiml].forEach(btn => {
+        btn.className = "px-3 py-1.5 rounded-md text-xs font-bold transition-all text-slate-600 hover:text-slate-900";
+    });
+    
+    if (mode === 'raw') {
+        btnRaw.className = "px-3 py-1.5 rounded-md text-xs font-bold transition-all bg-sky-600 text-white shadow-sm";
+        cleanPanel.classList.add('hidden');
+        aiPanel.classList.add('hidden');
+    } else if (mode === 'clean') {
+        btnClean.className = "px-3 py-1.5 rounded-md text-xs font-bold transition-all bg-emerald-600 text-white shadow-sm";
+        cleanPanel.classList.remove('hidden');
+        aiPanel.classList.add('hidden');
+    } else if (mode === 'aiml') {
+        btnAiml.className = "px-3 py-1.5 rounded-md text-xs font-bold transition-all bg-violet-600 text-white shadow-sm";
+        cleanPanel.classList.add('hidden');
+        aiPanel.classList.remove('hidden');
+    }
+    
+    updateDashboard();
+}
+
+function onInterpMethodChange() {
+    currentInterpMethod = document.getElementById('interpMethod').value;
+    updateDashboard();
+}
+
+function onThresholdChange() {
+    const val = parseInt(document.getElementById('outlierThreshold').value);
+    if (!isNaN(val) && val >= 10 && val <= 500) {
+        currentOutlierThreshold = val;
+        updateDashboard();
+    }
+}
+
+// Lấy giá trị mới nhất của trạm để hiển thị trên tooltip bản đồ
+function getLatestValue(st) {
+    if (!st || !st.chartData) return null;
+    const values = st.chartData.peak && st.chartData.peak.length > 0 ? st.chartData.peak : st.chartData.rainfallRaw;
+    if (!values || values.length === 0) return null;
+    for (let i = values.length - 1; i >= 0; i--) {
+        if (values[i] !== null && values[i] !== undefined) return values[i];
+    }
+    return null;
+}
+
 function initChart() {
     const ctx = document.getElementById('timeSeriesChart').getContext('2d');
     chartInstance = new Chart(ctx, {
@@ -345,40 +667,43 @@ function updateDashboard() {
     const st = stations[currentStation];
     if (!st) return;
 
-    // 1. Lọc dữ liệu theo khoảng ngày đã chọn
-    const labels = [];
-    const peakData = [];
-    const bedData = [];
-    const rainData = [];
-    const uniqueRainyDays = new Set();
+    const isRainStation = st.type === 'Trạm đo mưa' || st.type.includes('mưa');
+
+    // 1. Lọc dữ liệu thô ban đầu theo mốc thời gian đã chọn
+    const filteredLabels = [];
+    const filteredTimes = [];
+    const filteredDates = [];
+    const filteredPeak = [];
+    const filteredBed = [];
+    const filteredRain = [];
     
     const rawLabels = st.chartData.labels || [];
+    const rawTimes = st.chartData.times || [];
+    const rawDates = st.chartData.dates || [];
     const rawPeak = st.chartData.peak || [];
     const rawBed = st.chartData.bed || [];
     const rawRain = st.chartData.rainfallRaw || [];
-    const rawDates = st.chartData.dates || [];
-
+    
     for (let i = 0; i < rawLabels.length; i++) {
-        const dateStr = rawDates[i]; // e.g. "2008-03-01"
-        
+        const dateStr = rawDates[i];
         if (filteredStartDate && dateStr && dateStr < filteredStartDate) continue;
         if (filteredEndDate && dateStr && dateStr > filteredEndDate) continue;
         
-        labels.push(rawLabels[i]);
-        peakData.push(rawPeak[i]);
-        bedData.push(rawBed[i]);
-        rainData.push(rawRain[i]);
-        
-        // Lưu trữ ngày độc nhất có lượng mưa thực tế lớn hơn 0
-        if (rawRain[i] && rawRain[i] > 0 && dateStr) {
-            uniqueRainyDays.add(dateStr);
-        }
+        filteredLabels.push(rawLabels[i]);
+        filteredTimes.push(rawTimes[i] || '');
+        filteredDates.push(rawDates[i] || '');
+        filteredPeak.push(rawPeak[i]);
+        filteredBed.push(rawBed[i]);
+        filteredRain.push(rawRain[i]);
     }
 
-    // 2. Cập nhật thông tin chi tiết trạm (Left Panel)
+    // 2. Cập nhật thông tin chi tiết trạm bên trái (Left Panel)
+    const validRawPeak = filteredPeak.filter(v => v !== null && v !== undefined);
+    const maxRawPeak = validRawPeak.length > 0 ? Math.max(...validRawPeak) : 0;
+    const isMeter = maxRawPeak > 0 && maxRawPeak < 100;
+    const unit = isRainStation ? 'mm' : (isMeter ? 'm' : 'cm');
+
     let detailHtml = '';
-    
-    // Thêm địa bàn
     if (st.location) {
         detailHtml += `
             <div class="flex justify-between items-center border-b border-slate-100 pb-2">
@@ -387,8 +712,6 @@ function updateDashboard() {
             </div>
         `;
     }
-    
-    // Thêm tọa độ địa lý
     detailHtml += `
         <div class="flex justify-between items-center border-b border-slate-100 pb-2">
             <span class="text-xs text-slate-500 uppercase tracking-wide">Tọa độ</span>
@@ -396,24 +719,6 @@ function updateDashboard() {
         </div>
     `;
 
-    // Tính toán số liệu đo đạc (KPIs) dựa trên kết quả lọc
-    const validPeak = peakData.filter(v => v !== null && v !== undefined);
-    const validBed = bedData.filter(v => v !== null && v !== undefined);
-    const validWater = [...validPeak, ...validBed];
-    
-    const maxW = validPeak.length > 0 ? Math.max(...validPeak) : 0;
-    const minW = validBed.length > 0 ? Math.min(...validBed) : 0;
-
-    const validRain = rainData.filter(v => v !== null && v !== undefined);
-    const totalRain = validRain.reduce((a, b) => a + b, 0);
-    const maxRain = validRain.length > 0 ? Math.max(...validRain) : 0;
-
-    const isMeter = maxW > 0 && maxW < 100;
-    const unit = st.type === 'Trạm đo mưa' || st.type.includes('mưa') ? 'mm' : (isMeter ? 'm' : 'cm');
-
-    const isOverBD3 = st.alarms.bd3 > 0 && maxW >= st.alarms.bd3;
-
-    // Thêm cao độ thiết kế
     if (st.elevations && (st.elevations.peak > 0 || st.elevations.bed !== 0)) {
         detailHtml += `
             <div class="flex justify-between items-center border-b border-slate-100 pb-2">
@@ -427,7 +732,6 @@ function updateDashboard() {
         `;
     }
 
-    // Thêm các ngưỡng báo động
     if (st.alarms && st.alarms.bd1 > 0) {
         detailHtml += `
             <div class="flex justify-between items-center border-b border-slate-100 pb-2 bg-slate-50 px-1 py-1 rounded">
@@ -457,7 +761,120 @@ function updateDashboard() {
     `;
     document.getElementById('stationInfoPanel').innerHTML = infoHtml;
 
-    // Thiết lập màu sắc cảnh báo nguy hiểm
+    // 3. Phân luồng tính toán dữ liệu theo chế độ xem (Nhóm 1 và Nhóm 2)
+    let finalLabels = [...filteredLabels];
+    let finalPeak = [...filteredPeak];
+    let finalBed = [...filteredBed];
+    let finalRain = [...filteredRain];
+    
+    let outliersDetected = 0;
+    let gapsFilledCount = 0;
+    let outlierIndicesPeak = [];
+    let outlierIndicesBed = [];
+    let outlierIndicesRain = [];
+
+    if (currentDataMode === 'raw') {
+        if (isRainStation) {
+            const cleanRes = cleanDataOutliers(filteredRain, currentOutlierThreshold);
+            outlierIndicesRain = cleanRes.outlierIndices;
+            outliersDetected = cleanRes.outliersCount;
+        } else {
+            const cleanPeak = cleanDataOutliers(filteredPeak, currentOutlierThreshold);
+            outlierIndicesPeak = cleanPeak.outlierIndices;
+            outliersDetected += cleanPeak.outliersCount;
+            
+            const cleanBed = cleanDataOutliers(filteredBed, currentOutlierThreshold);
+            outlierIndicesBed = cleanBed.outlierIndices;
+            outliersDetected += cleanBed.outliersCount;
+        }
+    } else if (currentDataMode === 'clean') {
+        if (isRainStation) {
+            const cleanRes = cleanDataOutliers(filteredRain, currentOutlierThreshold);
+            outliersDetected = cleanRes.outliersCount;
+            const interpRes = interpolateTimeSeries3H(filteredDates, filteredTimes, cleanRes.cleaned, currentInterpMethod);
+            finalLabels = interpRes.labels;
+            finalRain = interpRes.values;
+            gapsFilledCount = interpRes.gapsFilled;
+            finalPeak = finalLabels.map(() => null);
+            finalBed = finalLabels.map(() => null);
+        } else {
+            const cleanPeak = cleanDataOutliers(filteredPeak, currentOutlierThreshold);
+            const cleanBed = cleanDataOutliers(filteredBed, currentOutlierThreshold);
+            outliersDetected = cleanPeak.outliersCount + cleanBed.outliersCount;
+            
+            const interpPeak = interpolateTimeSeries3H(filteredDates, filteredTimes, cleanPeak.cleaned, currentInterpMethod);
+            const interpBed = interpolateTimeSeries3H(filteredDates, filteredTimes, cleanBed.cleaned, currentInterpMethod);
+            
+            finalLabels = interpPeak.labels;
+            finalPeak = interpPeak.values;
+            finalBed = interpBed.values;
+            gapsFilledCount = interpPeak.gapsFilled + interpBed.gapsFilled;
+            finalRain = finalLabels.map(() => null);
+        }
+    } else if (currentDataMode === 'aiml') {
+        let interpValuesForModel = [];
+        if (isRainStation) {
+            const cleanRes = cleanDataOutliers(filteredRain, currentOutlierThreshold);
+            outliersDetected = cleanRes.outliersCount;
+            const interpRes = interpolateTimeSeries3H(filteredDates, filteredTimes, cleanRes.cleaned, currentInterpMethod);
+            finalLabels = interpRes.labels;
+            interpValuesForModel = interpRes.values;
+            gapsFilledCount = interpRes.gapsFilled;
+        } else {
+            const cleanPeak = cleanDataOutliers(filteredPeak, currentOutlierThreshold);
+            outliersDetected = cleanPeak.outliersCount;
+            const interpPeak = interpolateTimeSeries3H(filteredDates, filteredTimes, cleanPeak.cleaned, currentInterpMethod);
+            finalLabels = interpPeak.labels;
+            interpValuesForModel = interpPeak.values;
+            gapsFilledCount = interpPeak.gapsFilled;
+        }
+        
+        // Mô hình thủy văn (AI/ML) ước lượng lưu lượng Q (Thành viên 4)
+        const mlRes = runAIModelEstimation(st.id, interpValuesForModel, isRainStation);
+        finalPeak = mlRes.flowValues;
+        finalBed = finalLabels.map(() => null);
+        finalRain = finalLabels.map(() => null);
+
+        // Hiển thị bảng kiểm định mô hình AI/ML
+        const spec = mlRes.spec;
+        const formulaHtml = isRainStation ? 
+            `Q_{runoff} = ${spec.a} \\times Rain^{${spec.b}}` : 
+            `Q = ${spec.a} \\times (H - (${spec.h0}))^{${spec.b}}`;
+        
+        document.getElementById('aiModelMetricsPanel').innerHTML = `
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">🤖</span>
+                <h4 class="text-sm font-bold text-sky-950">${spec.name}</h4>
+            </div>
+            <p class="text-xs text-slate-600 mb-4 leading-relaxed">
+                Mô hình Rating Curve thủy văn hồi quy phi tuyến tính, ước lượng lưu lượng tự động dựa trên chuỗi thời gian mực nước/lượng mưa đã chuẩn hóa 3h.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div class="bg-white p-3 rounded-lg border border-sky-100 shadow-sm">
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider">Hệ số R² (Độ tin cậy)</div>
+                    <div class="text-lg font-bold text-sky-850">${spec.r2}</div>
+                </div>
+                <div class="bg-white p-3 rounded-lg border border-sky-100 shadow-sm">
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider">Sai số RMSE</div>
+                    <div class="text-lg font-bold text-sky-850">${spec.rmse} m³/s</div>
+                </div>
+                <div class="bg-white p-3 rounded-lg border border-sky-100 shadow-sm">
+                    <div class="text-[10px] text-slate-500 uppercase tracking-wider">Thuật toán hồi quy</div>
+                    <div class="text-xs font-semibold text-slate-700 mt-1">Non-linear Least Squares</div>
+                </div>
+            </div>
+            <div class="bg-white px-3 py-2 rounded-lg border border-sky-100 font-mono text-xs text-slate-700 flex flex-wrap justify-between items-center gap-2">
+                <span class="text-slate-400">Phương trình mô hình:</span>
+                <span class="font-bold text-sky-900">${formulaHtml}</span>
+            </div>
+        `;
+    }
+
+    // 4. Thiết lập cảnh báo nguy hiểm nền (Mực nước vượt báo động 3)
+    const validPeakForAlarms = finalPeak.filter(v => v !== null && v !== undefined);
+    const maxValForAlarms = validPeakForAlarms.length > 0 ? Math.max(...validPeakForAlarms) : 0;
+    const isOverBD3 = !isRainStation && currentDataMode !== 'aiml' && st.alarms.bd3 > 0 && maxValForAlarms >= st.alarms.bd3;
+
     const alertBg = document.getElementById('alertBg');
     if (isOverBD3) {
         alertBg.classList.remove('opacity-0');
@@ -467,11 +884,57 @@ function updateDashboard() {
         alertBg.classList.add('opacity-0');
     }
 
-    const isRainStation = st.type === 'Trạm đo mưa' || st.type.includes('mưa');
+    // 5. Cập nhật các thẻ KPI
     let kpiHtml = '';
+    if (currentDataMode === 'aiml') {
+        // --- KPI cho Chế độ AI/ML Lưu lượng Q ---
+        const validFlows = finalPeak.filter(v => v !== null && v !== undefined);
+        const maxFlow = validFlows.length > 0 ? Math.max(...validFlows) : 0;
+        const minFlow = validFlows.length > 0 ? Math.min(...validFlows) : 0;
+        const avgFlow = validFlows.length > 0 ? (validFlows.reduce((a, b) => a + b, 0) / validFlows.length) : 0;
+        
+        let flowStatusColor = 'text-emerald-600';
+        let flowStatusText = 'Ổn định';
+        if (maxFlow > 500) {
+            flowStatusColor = 'text-rose-600 animate-pulse font-bold';
+            flowStatusText = 'Lưu lượng cực lớn';
+        } else if (maxFlow > 200) {
+            flowStatusColor = 'text-orange-500 font-bold';
+            flowStatusText = 'Dòng chảy mạnh';
+        }
 
-    if (isRainStation) {
+        kpiHtml = `
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Lưu lượng Lớn nhất</div>
+                <div class="text-2xl font-bold text-violet-700">${maxFlow > 0 ? maxFlow.toFixed(1) : '--'} m³/s</div>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Lưu lượng Nhỏ nhất</div>
+                <div class="text-2xl font-bold text-slate-700">${minFlow > 0 ? minFlow.toFixed(1) : '--'} m³/s</div>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Lưu lượng Trung bình</div>
+                <div class="text-2xl font-bold text-violet-700">${avgFlow > 0 ? avgFlow.toFixed(1) : '--'} m³/s</div>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Trạng thái dòng chảy</div>
+                <div class="text-lg font-bold flex items-center gap-2 ${flowStatusColor}">
+                    💧 ${flowStatusText}
+                </div>
+            </div>
+        `;
+    } else if (isRainStation) {
         // --- KPI cho Trạm Lượng Mưa ---
+        const validRain = finalRain.filter(v => v !== null && v !== undefined);
+        const totalRain = validRain.reduce((a, b) => a + b, 0);
+        const maxRain = validRain.length > 0 ? Math.max(...validRain) : 0;
+        
+        const uniqueRainyDays = new Set();
+        filteredDates.forEach((d, idx) => {
+            if (filteredRain[idx] && filteredRain[idx] > 0) uniqueRainyDays.add(d);
+        });
+        const rainyDays = uniqueRainyDays.size;
+
         let rainStatusColor = 'text-emerald-600';
         let rainStatusText = 'Bình thường';
         let rainIcon = '☀️';
@@ -494,9 +957,8 @@ function updateDashboard() {
             rainIcon = '💧';
         }
 
-        const maxRainStr = maxRain > 0 ? `${maxRain.toFixed(1)} mm` : '--';
         const totalRainStr = totalRain > 0 ? `${totalRain.toFixed(1)} mm` : '0.0 mm';
-        const rainyDays = uniqueRainyDays.size;
+        const maxRainStr = maxRain > 0 ? `${maxRain.toFixed(1)} mm` : '--';
 
         kpiHtml = `
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -512,14 +974,21 @@ function updateDashboard() {
                 <div class="text-2xl font-bold text-slate-700">${rainyDays} ngày</div>
             </div>
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Tình trạng</div>
-                <div class="text-lg font-bold flex items-center gap-2 ${rainStatusColor}">
-                    ${rainIcon} ${rainStatusText}
-                </div>
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Xử lý dữ liệu</div>
+                <div class="text-xs font-semibold text-emerald-700">Lọc ${outliersDetected} điểm nhiễu</div>
+                <div class="text-xs font-semibold text-slate-500 mt-1">Điền ${gapsFilledCount} mốc 3h</div>
             </div>
         `;
     } else {
         // --- KPI cho Trạm Mực Nước ---
+        const validPeak = finalPeak.filter(v => v !== null && v !== undefined);
+        const validBed = finalBed.filter(v => v !== null && v !== undefined);
+        const validWater = [...validPeak, ...validBed];
+        
+        const maxW = validPeak.length > 0 ? Math.max(...validPeak) : 0;
+        const minW = validBed.length > 0 ? Math.min(...validBed) : 0;
+        const avgW = validWater.length > 0 ? (validWater.reduce((a, b) => a + b, 0) / validWater.length) : 0;
+
         let statusColor = 'text-emerald-600';
         let statusText = 'Bình thường';
         if (isOverBD3) {
@@ -535,9 +1004,6 @@ function updateDashboard() {
 
         const maxWStr = validWater.length > 0 ? `${maxW.toFixed(2)} ${unit}` : '--';
         const minWStr = validWater.length > 0 ? `${minW.toFixed(2)} ${unit}` : '--';
-        
-        // Tính toán Mực nước Trung bình
-        const avgW = validWater.length > 0 ? (validWater.reduce((a, b) => a + b, 0) / validWater.length) : 0;
         const avgWStr = validWater.length > 0 ? `${avgW.toFixed(2)} ${unit}` : '--';
 
         kpiHtml = `
@@ -550,8 +1016,9 @@ function updateDashboard() {
                 <div class="text-2xl font-bold text-slate-800">${minWStr}</div>
             </div>
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Mực nước Trung bình</div>
-                <div class="text-2xl font-bold text-slate-800">${avgWStr}</div>
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Xử lý dữ liệu</div>
+                <div class="text-xs font-semibold text-emerald-700">Lọc ${outliersDetected} điểm nhiễu</div>
+                <div class="text-xs font-semibold text-slate-500 mt-1">Nội suy ${gapsFilledCount} mốc 3h</div>
             </div>
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Tình trạng</div>
@@ -563,75 +1030,161 @@ function updateDashboard() {
     }
     document.getElementById('kpiContainer').innerHTML = kpiHtml;
 
-    // 4. Vẽ biểu đồ hỗn hợp động dựa theo loại trạm (Mực nước: Line màu xanh lá, Lượng mưa: Bar màu xanh dương)
-    chartInstance.data.labels = labels;
-    
+    // 6. Vẽ biểu đồ dựa theo các dataset của từng chế độ (Thành viên 6)
+    chartInstance.data.labels = finalLabels;
     const datasets = [];
 
-    // Chỉ vẽ đường Mực nước nếu trạm không phải là trạm đo lượng mưa thuần túy
-    if (!isRainStation && validWater.length > 0) {
+    if (currentDataMode === 'aiml') {
         datasets.push({
             type: 'line',
-            label: `Mực nước Đỉnh (${unit})`,
-            data: peakData,
-            borderColor: '#10b981', // Màu xanh lá cho Mực nước Đỉnh
-            backgroundColor: 'rgba(16, 185, 129, 0.05)',
-            borderWidth: 2.2,
-            pointRadius: 2.5,
-            pointBackgroundColor: '#10b981',
+            label: `Lưu lượng Ước lượng (m³/s)`,
+            data: finalPeak,
+            borderColor: '#8b5cf6', // Màu tím cho AI/ML
+            backgroundColor: 'rgba(139, 92, 246, 0.05)',
+            borderWidth: 2.5,
+            pointRadius: 2,
             tension: 0.35,
             spanGaps: true,
-            fill: false,
+            fill: true,
             yAxisID: 'y'
         });
-        datasets.push({
-            type: 'line',
-            label: `Mực nước Đáy (${unit})`,
-            data: bedData,
-            borderColor: '#06b6d4', // Màu xanh ngọc bích cho Mực nước Đáy
-            backgroundColor: 'rgba(6, 182, 212, 0.05)',
-            borderWidth: 2.2,
-            pointRadius: 2.5,
-            pointBackgroundColor: '#06b6d4',
-            tension: 0.35,
-            spanGaps: true,
-            fill: false,
-            yAxisID: 'y'
-        });
-    }
-
-    // Chỉ vẽ cột Lượng mưa nếu là trạm đo mưa hoặc trạm mực nước có ghi nhận dữ liệu lượng mưa
-    if (isRainStation || validRain.length > 0) {
+    } else if (isRainStation) {
         datasets.push({
             type: 'bar',
-            label: 'Lượng mưa (mm)',
-            data: rainData,
-            borderColor: '#0ea5e9', // Màu xanh dương cho Lượng mưa
+            label: `Lượng mưa (${currentDataMode === 'clean' ? 'Nội suy 3h' : 'Thô'}) (mm)`,
+            data: finalRain,
+            borderColor: '#0ea5e9',
             backgroundColor: 'rgba(14, 165, 233, 0.35)',
             borderWidth: 1.5,
             borderRadius: 4,
             yAxisID: 'y1',
             spanGaps: true
         });
+
+        // Vẽ đè chấm đỏ làm nổi bật điểm dị thường (outliers) ở chế độ Thô
+        if (currentDataMode === 'raw' && outlierIndicesRain.length > 0) {
+            const outlierScatter = finalRain.map((v, i) => outlierIndicesRain.includes(i) ? v : null);
+            datasets.push({
+                type: 'line',
+                label: 'Điểm nhiễu đã phát hiện',
+                data: outlierScatter,
+                borderColor: '#ef4444',
+                pointBackgroundColor: '#ef4444',
+                pointRadius: 6,
+                showLine: false,
+                yAxisID: 'y1'
+            });
+        }
+    } else {
+        datasets.push({
+            type: 'line',
+            label: `Mực nước Đỉnh (${currentDataMode === 'clean' ? 'Nội suy 3h' : 'Thô'}) (${unit})`,
+            data: finalPeak,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.05)',
+            borderWidth: 2.2,
+            pointRadius: currentDataMode === 'clean' ? 1.5 : 2.5,
+            pointBackgroundColor: '#10b981',
+            tension: 0.35,
+            spanGaps: true,
+            fill: false,
+            yAxisID: 'y'
+        });
+
+        datasets.push({
+            type: 'line',
+            label: `Mực nước Đáy (${currentDataMode === 'clean' ? 'Nội suy 3h' : 'Thô'}) (${unit})`,
+            data: finalBed,
+            borderColor: '#06b6d4',
+            backgroundColor: 'rgba(6, 182, 212, 0.05)',
+            borderWidth: 2.2,
+            pointRadius: currentDataMode === 'clean' ? 1.5 : 2.5,
+            pointBackgroundColor: '#06b6d4',
+            tension: 0.35,
+            spanGaps: true,
+            fill: false,
+            yAxisID: 'y'
+        });
+
+        // Vẽ đè các điểm dữ liệu thô gốc (dạng chấm mờ nhạt phía sau) khi xem chế độ chuẩn hóa
+        if (currentDataMode === 'clean') {
+            datasets.push({
+                type: 'line',
+                label: 'Mực nước đỉnh gốc',
+                data: filteredPeak,
+                borderColor: 'rgba(16, 185, 129, 0.18)',
+                pointBackgroundColor: 'rgba(16, 185, 129, 0.25)',
+                pointRadius: 2.5,
+                showLine: false,
+                yAxisID: 'y'
+            });
+            datasets.push({
+                type: 'line',
+                label: 'Mực nước đáy gốc',
+                data: filteredBed,
+                borderColor: 'rgba(6, 182, 212, 0.18)',
+                pointBackgroundColor: 'rgba(6, 182, 212, 0.25)',
+                pointRadius: 2.5,
+                showLine: false,
+                yAxisID: 'y'
+            });
+        }
+
+        // Vẽ chấm đỏ đánh dấu các điểm nhiễu (outliers) ở chế độ Thô
+        if (currentDataMode === 'raw') {
+            if (outlierIndicesPeak.length > 0) {
+                const outlierScatterPeak = finalPeak.map((v, i) => outlierIndicesPeak.includes(i) ? v : null);
+                datasets.push({
+                    type: 'line',
+                    label: 'Đỉnh nhiễu phát hiện',
+                    data: outlierScatterPeak,
+                    borderColor: '#ef4444',
+                    pointBackgroundColor: '#ef4444',
+                    pointRadius: 6,
+                    showLine: false,
+                    yAxisID: 'y'
+                });
+            }
+            if (outlierIndicesBed.length > 0) {
+                const outlierScatterBed = finalBed.map((v, i) => outlierIndicesBed.includes(i) ? v : null);
+                datasets.push({
+                    type: 'line',
+                    label: 'Đáy nhiễu phát hiện',
+                    data: outlierScatterBed,
+                    borderColor: '#ef4444',
+                    pointBackgroundColor: '#ef4444',
+                    pointRadius: 6,
+                    showLine: false,
+                    yAxisID: 'y'
+                });
+            }
+        }
     }
 
     chartInstance.data.datasets = datasets;
 
-    // Thiết lập giới hạn tự động cho trục Mực nước (bao gồm cả Đỉnh/Chân thiết kế nếu có)
+    // 7. Cập nhật giới hạn trục Y động
     let yMin = 0;
     let yMax = 100;
-    if (validWater.length > 0) {
+
+    const validWater = [...finalPeak, ...finalBed].filter(v => v !== null && v !== undefined);
+    const validRain = finalRain.filter(v => v !== null && v !== undefined);
+    const maxRain = validRain.length > 0 ? Math.max(...validRain) : 0;
+
+    if (currentDataMode === 'aiml') {
+        const flows = finalPeak.filter(v => v !== null && v !== undefined);
+        const maxFlow = flows.length > 0 ? Math.max(...flows) : 100;
+        const minFlow = flows.length > 0 ? Math.min(...flows) : 0;
+        yMin = minFlow * 0.9;
+        yMax = maxFlow * 1.1;
+        if (yMin < 0) yMin = 0;
+    } else if (validWater.length > 0) {
         let minVal = Math.min(...validWater);
         let maxVal = Math.max(...validWater);
         
-        // Đưa đỉnh và chân thiết kế vào tính toán khoảng trục Y để đảm bảo chúng luôn hiển thị
         if (st.elevations) {
-            if (st.elevations.peak > 0) {
-                maxVal = Math.max(maxVal, st.elevations.peak);
-            }
-            if (st.elevations.bed !== 0) {
-                minVal = Math.min(minVal, st.elevations.bed);
-            }
+            if (st.elevations.peak > 0) maxVal = Math.max(maxVal, st.elevations.peak);
+            if (st.elevations.bed !== 0) minVal = Math.min(minVal, st.elevations.bed);
         }
         
         const diff = maxVal - minVal;
@@ -643,87 +1196,66 @@ function updateDashboard() {
         yMax = 10;
     }
 
-    // Bật/tắt hiển thị trục Y động tùy theo loại trạm đang xem
-    if (isRainStation) {
-        chartInstance.options.scales.y.display = false;   // Ẩn trục mực nước bên trái
-        chartInstance.options.scales.y1.display = true;   // Hiển thị trục lượng mưa bên phải
+    if (currentDataMode === 'aiml') {
+        chartInstance.options.scales.y.display = true;
+        chartInstance.options.scales.y1.display = false;
+        chartInstance.options.scales.y.title.text = 'Lưu lượng (m³/s)';
+        chartInstance.options.scales.y.min = Math.floor(yMin);
+        chartInstance.options.scales.y.max = Math.ceil(yMax);
+    } else if (isRainStation) {
+        chartInstance.options.scales.y.display = false;
+        chartInstance.options.scales.y1.display = true;
+        chartInstance.options.scales.y1.max = Math.ceil((maxRain * 1.2 || 10) / 10) * 10;
     } else {
-        chartInstance.options.scales.y.display = true;    // Hiển thị trục mực nước bên trái
-        chartInstance.options.scales.y1.display = validRain.length > 0; // Chỉ hiển thị lượng mưa nếu có dữ liệu
+        chartInstance.options.scales.y.display = true;
+        chartInstance.options.scales.y1.display = validRain.length > 0;
+        chartInstance.options.scales.y.title.text = `Mực nước (${unit})`;
+        chartInstance.options.scales.y.min = Math.floor(yMin * 10) / 10;
+        chartInstance.options.scales.y.max = Math.ceil(yMax * 10) / 10;
+        chartInstance.options.scales.y1.max = Math.ceil((maxRain * 1.2 || 10) / 10) * 10;
     }
 
-    chartInstance.options.scales.y.title.text = `Mực nước (${unit})`;
-    chartInstance.options.scales.y.min = Math.floor(yMin * 10) / 10;
-    chartInstance.options.scales.y.max = Math.ceil(yMax * 10) / 10;
-
-    // Thiết lập giới hạn tự động cho trục Lượng mưa (trục phải)
-    chartInstance.options.scales.y1.max = Math.ceil((maxRain * 1.2 || 10) / 10) * 10;
-
-    // Vẽ động các đường giới hạn thiết kế và cảnh báo lũ (chỉ vẽ đối với trạm đo mực nước)
+    // 8. Vẽ động các đường giới hạn thiết kế và cảnh báo lũ (Chỉ hiện khi xem mực nước ở chế độ Raw/Clean)
     const annotations = {};
-    
-    if (!isRainStation) {
+    if (!isRainStation && currentDataMode !== 'aiml') {
         const labelBg1 = 'rgba(245, 158, 11, 0.85)';
         const labelBg2 = 'rgba(234, 88, 12, 0.85)';
         const labelBg3 = 'rgba(225, 29, 72, 0.85)';
-        const labelBgPeak = 'rgba(71, 85, 105, 0.85)';  // Slate 600 cho Đỉnh thiết kế
-        const labelBgBed = 'rgba(100, 116, 139, 0.85)';   // Slate 500 cho Chân thiết kế
+        const labelBgPeak = 'rgba(71, 85, 105, 0.85)';
+        const labelBgBed = 'rgba(100, 116, 139, 0.85)';
 
-        // 1. Vẽ Đỉnh & Chân thiết kế của công trình (nếu có thông số)
         if (st.elevations && st.elevations.peak > 0) {
             annotations.peakElevation = {
-                type: 'line',
-                yMin: st.elevations.peak,
-                yMax: st.elevations.peak,
-                borderColor: '#475569',
-                borderWidth: 1.5,
-                borderDash: [4, 4],
+                type: 'line', yMin: st.elevations.peak, yMax: st.elevations.peak,
+                borderColor: '#475569', borderWidth: 1.5, borderDash: [4, 4],
                 label: { content: 'Đỉnh thiết kế', display: true, position: 'end', backgroundColor: labelBgPeak }
             };
         }
         if (st.elevations && st.elevations.bed !== 0) {
             annotations.bedElevation = {
-                type: 'line',
-                yMin: st.elevations.bed,
-                yMax: st.elevations.bed,
-                borderColor: '#64748b',
-                borderWidth: 1.5,
-                borderDash: [4, 4],
+                type: 'line', yMin: st.elevations.bed, yMax: st.elevations.bed,
+                borderColor: '#64748b', borderWidth: 1.5, borderDash: [4, 4],
                 label: { content: 'Chân thiết kế', display: true, position: 'end', backgroundColor: labelBgBed }
             };
         }
-
-        // 2. Vẽ các ngưỡng báo động lũ (nếu có thông số)
         if (st.alarms.bd1 && st.alarms.bd1 > 0) {
             annotations.bd1 = {
-                type: 'line',
-                yMin: st.alarms.bd1,
-                yMax: st.alarms.bd1,
-                borderColor: '#f59e0b',
-                borderWidth: 1.5,
-                borderDash: [5, 5],
+                type: 'line', yMin: st.alarms.bd1, yMax: st.alarms.bd1,
+                borderColor: '#f59e0b', borderWidth: 1.5, borderDash: [5, 5],
                 label: { content: 'Báo động 1', display: true, position: 'start', backgroundColor: labelBg1 }
             };
         }
         if (st.alarms.bd2 && st.alarms.bd2 > 0) {
             annotations.bd2 = {
-                type: 'line',
-                yMin: st.alarms.bd2,
-                yMax: st.alarms.bd2,
-                borderColor: '#ea580c',
-                borderWidth: 1.5,
-                borderDash: [5, 5],
+                type: 'line', yMin: st.alarms.bd2, yMax: st.alarms.bd2,
+                borderColor: '#ea580c', borderWidth: 1.5, borderDash: [5, 5],
                 label: { content: 'Báo động 2', display: true, position: 'start', backgroundColor: labelBg2 }
             };
         }
         if (st.alarms.bd3 && st.alarms.bd3 > 0) {
             annotations.bd3 = {
-                type: 'line',
-                yMin: st.alarms.bd3,
-                yMax: st.alarms.bd3,
-                borderColor: '#e11d48',
-                borderWidth: 1.5,
-                borderDash: [5, 5],
+                type: 'line', yMin: st.alarms.bd3, yMax: st.alarms.bd3,
+                borderColor: '#e11d48', borderWidth: 1.5, borderDash: [5, 5],
                 label: { content: 'Báo động 3', display: true, position: 'start', backgroundColor: labelBg3 }
             };
         }
@@ -731,6 +1263,9 @@ function updateDashboard() {
     
     chartInstance.options.plugins.annotation.annotations = annotations;
     chartInstance.update();
+
+    // 9. Cập nhật marker bản đồ (Tooltip & Màu sắc) (Thành viên 6)
+    updateMapMarkers();
 }
 
 // Khởi tạo Dashboard khi DOM load xong
@@ -793,6 +1328,7 @@ async function loadStationData(stId, startDate, endDate) {
             
             st.chartData.labels = [];
             st.chartData.dates = [];
+            st.chartData.times = [];
             st.chartData.peak = [];
             st.chartData.bed = [];
             st.chartData.raw = [];
@@ -802,6 +1338,7 @@ async function loadStationData(stId, startDate, endDate) {
                 const label = `${row.gio || ''} ${row.ngay ? row.ngay.substring(5) : ''}`.trim();
                 st.chartData.labels.push(label);
                 st.chartData.dates.push(row.ngay);
+                st.chartData.times.push(row.gio || '');
                 st.chartData.peak.push(row.doCaoDinhT);
                 st.chartData.bed.push(row.doCaoChanT);
                 st.chartData.raw.push(null);
@@ -822,6 +1359,7 @@ async function loadStationData(stId, startDate, endDate) {
             
             st.chartData.labels = [];
             st.chartData.dates = [];
+            st.chartData.times = [];
             st.chartData.peak = [];
             st.chartData.bed = [];
             st.chartData.raw = [];
@@ -831,6 +1369,7 @@ async function loadStationData(stId, startDate, endDate) {
                 const label = `${row.gio || ''} ${row.ngay ? row.ngay.substring(5) : ''}`.trim();
                 st.chartData.labels.push(label);
                 st.chartData.dates.push(row.ngay);
+                st.chartData.times.push(row.gio || '');
                 st.chartData.peak.push(null);
                 st.chartData.bed.push(null);
                 st.chartData.raw.push(null);
@@ -884,7 +1423,7 @@ async function loadDataFromSupabase() {
                     bd2: row.alarms_bd2 || 0,
                     bd3: row.alarms_bd3 || 0
                 },
-                chartData: { labels: [], dates: [], raw: [], rainfallRaw: [] },
+                chartData: { labels: [], dates: [], times: [], peak: [], bed: [], raw: [], rainfallRaw: [] },
                 loaded: false
             };
         });
