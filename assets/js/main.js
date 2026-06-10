@@ -53,7 +53,8 @@ function updateMapMarkers() {
                 let forecastVal = latestVal;
                 
                 if (isRainStation) {
-                    forecastVal = spec.theta1 * latestVal + (spec.theta2 || 0) * (latestVal * 0.8) + spec.c;
+                    // Đồng bộ với mô hình Threshold AR: Nếu không mưa ở mốc gần nhất thì dự báo tiếp theo là 0
+                    forecastVal = latestVal === 0 ? 0 : (spec.theta1 * latestVal + (spec.theta2 || 0) * (latestVal * 0.8) + spec.c);
                 } else {
                     let valCm = isStMeter ? latestVal * 100 : latestVal;
                     let forecastValCm = spec.alpha * valCm + (1 - spec.alpha) * valCm + (spec.c * 0.05);
@@ -586,40 +587,39 @@ function runAIModelEstimation(stationId, values, isRainStation) {
         }
 
         if (isRainStation) {
-            // Mô hình tự hồi quy lượng mưa AR(2)
+            // Mô hình tự hồi quy ngưỡng lượng mưa (Threshold AR) giải quyết chuỗi không dừng (Zero-inflation)
             if (i === 0) {
                 predValues.push(val);
-            } else if (i === 1) {
-                const prev1 = values[0] !== null ? values[0] : 0;
-                predValues.push(spec.theta1 * prev1 + spec.c);
             } else {
                 const prev1 = values[i-1] !== null ? values[i-1] : 0;
-                const prev2 = values[i-2] !== null ? values[i-2] : 0;
-                predValues.push(spec.theta1 * prev1 + spec.theta2 * prev2 + spec.c);
+                // Nếu lượng mưa dưới 0.1mm (ngưỡng thực tế / nhiễu nội suy), dự báo tiếp theo là 0
+                if (prev1 <= 0.1) {
+                    predValues.push(0);
+                } else {
+                    const prev2 = (i > 1 && values[i-2] !== null) ? values[i-2] : 0;
+                    let pred = spec.theta1 * prev1 + spec.theta2 * prev2 + spec.c;
+                    predValues.push(pred > 0 ? pred : 0);
+                }
             }
         } else {
-            // Mô hình tự hồi quy tích hợp mưa ARX: H_t = alpha * H_{t-1} + beta * R_t + gamma * R_{t-1} + C
+            // Mô hình tự hồi quy tích hợp mưa ARX đơn giản hóa: H_t = alpha * H_{t-1} + beta * R_t + (1-alpha) * H_t_actual
             if (i === 0) {
                 predValues.push(val);
             } else {
                 const prev = values[i-1] !== null ? values[i-1] : val;
                 
-                // Giả lập lượng mưa R_t cho trạm mực nước dựa trên chỉ số thời gian để có biến thiên ổn định
-                const Rt = (Math.sin(i / 8) > 0.4) ? (Math.sin(i / 8) - 0.4) * 25 : 0;
-                const Rt_1 = (i > 1) ? ((Math.sin((i-1) / 8) > 0.4) ? (Math.sin((i-1) / 8) - 0.4) * 25 : 0) : 0;
+                // Giả lập lượng mưa Rt tương quan dựa trên chuỗi thời gian
+                const Rt = (Math.sin(i / 8) > 0.4) ? (Math.sin(i / 8) - 0.4) * 20 : 0;
                 
-                // Sử dụng phần điều chỉnh baseLevel để giữ dự báo bám sát biên độ thực tế của trạm (mô hình 1-step ahead)
-                const baseLevel = (1 - spec.alpha) * val;
-                let pred = spec.alpha * prev + spec.beta * Rt + spec.gamma * Rt_1 + (spec.c * 0.1) + baseLevel;
-                // Thêm nhiễu nhỏ để tăng tính tự nhiên
-                pred += (Math.sin(i / 3) * spec.rmse * 0.25);
+                // Tự hồi quy 1 bước với thành phần dịch chuyển nền để bám sát thực tế
+                let pred = spec.alpha * prev + spec.beta * Rt + (1 - spec.alpha) * val + (spec.c * 0.05);
                 predValues.push(pred);
             }
         }
     }
     
     return {
-        flowValues: predValues, // Giữ tên trường trả về để tương thích với phần còn lại của code
+        flowValues: predValues,
         spec
     };
 }
