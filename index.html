@@ -21,6 +21,8 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body class="h-screen flex flex-col">
@@ -36,10 +38,8 @@
                 </div>
             </div>
             <div class="hidden md:flex items-center gap-4 text-sm">
-                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Trạm đo
-                    thủ công</div>
-                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-500"></span> Trạm ảo (Vệ
-                    tinh)</div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Trạm quan trắc mực nước</div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-sky-500"></span> Trạm đo lượng mưa</div>
             </div>
         </div>
     </header>
@@ -53,8 +53,7 @@
                     &#x1F5FA;&#xFE0F; Bản đồ Không gian
                 </h2>
                 <p class="text-xs text-slate-600 mb-4 leading-relaxed">
-                    Hệ thống thu thập dữ liệu mực nước tại trạm 74129 - Yên Bái (Sông Thao) và tích hợp dữ liệu trạm ảo
-                    từ vệ tinh đo cao. Nhấp vào các điểm trên bản đồ để xem chi tiết.
+                    Hệ thống trực quan hóa dữ liệu mực nước sông và lượng mưa tích hợp từ cơ sở dữ liệu PostgreSQL/PostGIS. Nhấp chọn các trạm trên bản đồ để tra cứu chi tiết thông số theo thời gian.
                 </p>
 
                 <div class="map-container mb-6 border border-slate-300">
@@ -76,28 +75,16 @@
         <div class="w-full md:w-7/12 lg:w-2/3 bg-white p-6 md:p-8 flex flex-col overflow-y-auto custom-scrollbar">
             <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 fade-in">
                 <div>
-                    <h2 class="text-2xl font-bold text-slate-800" id="chartTitle">Phân tích Mực nước</h2>
-                    <p class="text-sm text-slate-500 mt-1" id="chartSubtitle">Chuỗi thời gian phân giải cao & Cảnh báo
-                    </p>
+                    <h2 class="text-2xl font-bold text-slate-800" id="chartTitle">Phân tích Mực nước & Lượng mưa</h2>
+                    <p class="text-sm text-slate-500 mt-1" id="chartSubtitle">Chuỗi thời gian phân giải cao, tương quan Mưa - Lũ & Cảnh báo</p>
                 </div>
 
-                <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 self-start" id="dataModeToggle">
-                    <button
-                        class="btn-toggle active px-4 py-2 text-sm font-medium rounded-md text-slate-700 bg-white shadow-sm border border-slate-200 focus:outline-none"
-                        onclick="setMode('raw')">
-                        &#x1F4C4; Dữ liệu Thô
-                    </button>
-                    <button
-                        class="btn-toggle px-4 py-2 text-sm font-medium rounded-md text-slate-600 hover:text-slate-800 focus:outline-none"
-                        onclick="setMode('clean')">
-                        &#x2728; Đã Chuẩn hóa
-                    </button>
+                <div class="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 self-start" id="dateFilterPanel">
+                    <span class="text-xs text-slate-500 font-semibold">Thời gian:</span>
+                    <select id="filterYear" onchange="onYearChange()" class="text-xs border border-slate-300 rounded p-1 focus:outline-none focus:border-sky-500 bg-white font-medium text-slate-700"></select>
+                    <select id="filterMonth" onchange="onMonthChange()" class="text-xs border border-slate-300 rounded p-1 focus:outline-none focus:border-sky-500 bg-white font-medium text-slate-700" disabled></select>
+                    <button onclick="resetDateFilter()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded transition">Reset</button>
                 </div>
-            </div>
-
-            <div class="bg-sky-50 border border-sky-100 rounded-lg p-4 mb-8 fade-in text-sm text-slate-700 leading-relaxed"
-                id="contextBox">
-                <!-- Context injected via JS -->
             </div>
 
             <div class="flex-grow flex items-center justify-center fade-in mb-8">
@@ -106,7 +93,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 fade-in" id="kpiContainer">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 fade-in" id="kpiContainer">
             </div>
         </div>
     </div>

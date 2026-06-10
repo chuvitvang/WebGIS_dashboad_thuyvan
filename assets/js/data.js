@@ -1,52 +1,257 @@
-// Data Configuration
+// Data Configuration - Thực địa TP. Hồ Chí Minh (Được trích xuất trực tiếp từ CSDL CSV)
 const stations = {
-    '74129': {
-        id: '74129',
-        name: 'Trạm Thủy văn Yên Bái',
-        type: 'Trạm mặt đất',
-        typeColor: 'text-emerald-600',
-        dotColor: '#10b981',
-        lat: 21.722, // Tọa độ thực tế khu vực Yên Bái
-        lng: 104.887,
-        desc: 'Quan trắc thủ công. Sông Thao. Dữ liệu có ngắt quãng và ngoại lai cần xử lý.',
-        alarms: {
-            bd1: 3000, // cm
-            bd2: 3100, // cm
-            bd3: 3200  // cm
+    "MN_phu_an": {
+        "id": "MN_phu_an",
+        "name": "Phú An",
+        "type": "Trạm mực nước",
+        "typeColor": "text-emerald-600",
+        "dotColor": "#10b981",
+        "lat": 10.77861111,
+        "lng": 106.7077778,
+        "location": "Quận 2, TP. Hồ Chí Minh",
+        "elevations": {
+            "peak": 1.01,
+            "bed": -0.93
         },
-        metrics: {
-            raw: { max: '3250 cm', min: '1571 cm', missing: '12 điểm', status: 'Lỗi ngoại lai' },
-            clean: { max: '3250 cm', min: '2542 cm', missing: '0 điểm', status: 'Vượt Báo Động 3' }
+        "desc": "Tổng hợp số liệu quan trắc mực nước sông trạm Phú An (2008-2022).",
+        "alarms": {
+            "bd1": 1.0,
+            "bd2": 1.3,
+            "bd3": 1.5
         },
-        chartData: {
-            labels: ['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00', '22:00', '01:00', '04:00', '07:00'],
-            // Added a flood event peaking above 3200 (BD3)
-            raw: [2619, null, 2807, null, 3050, null, 3250, null, 3180, null, 1571], 
-            clean: [2619, 2710, 2807, 2920, 3050, 3160, 3250, 3220, 3180, 3100, 3010] 
-        }
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
     },
-    'VS-01': {
-        id: 'VS-01',
-        name: 'Trạm Ảo VS-01 (Jason-3)',
-        type: 'Vệ tinh đo cao',
-        typeColor: 'text-amber-600',
-        dotColor: '#f59e0b',
-        lat: 21.5,
-        lng: 104.5, // Dọc hạ lưu sông
-        desc: 'Dữ liệu trích xuất từ vệ tinh đo cao, phục vụ khu vực không có trạm mặt đất.',
-        alarms: {
-            bd1: 25.0, // meters
-            bd2: 27.0, // meters
-            bd3: 28.0  // meters
+    "MN_nha_be": {
+        "id": "MN_nha_be",
+        "name": "Nhà Bè",
+        "type": "Trạm mực nước",
+        "typeColor": "text-emerald-600",
+        "dotColor": "#10b981",
+        "lat": 10.63944444,
+        "lng": 106.7347222,
+        "location": "Huyện Nhà Bè, TP. Hồ Chí Minh",
+        "elevations": {
+            "peak": 0.92,
+            "bed": -1.02
         },
-        metrics: {
-            raw: { max: '28.5 m', min: '22.1 m', missing: 'Thưa thớt', status: 'Dữ liệu bay qua' },
-            clean: { max: '28.5 m', min: '22.2 m', missing: '0 điểm', status: 'Vượt Báo Động 3' }
+        "desc": "Tổng hợp số liệu quan trắc mực nước sông trạm Nhà Bè (2008-2022).",
+        "alarms": {
+            "bd1": 1.0,
+            "bd2": 1.3,
+            "bd3": 1.5
         },
-        chartData: {
-            labels: ['Ngày 1', 'Ngày 4', 'Ngày 7', 'Ngày 10', 'Ngày 13', 'Ngày 16', 'Ngày 19', 'Ngày 22', 'Ngày 25', 'Ngày 28', 'Ngày 31'],
-            raw: [22.1, null, null, 23.5, null, null, 26.8, null, null, 28.5, null],
-            clean: [22.1, 22.5, 23.0, 23.5, 24.8, 25.9, 26.8, 27.5, 28.1, 28.5, 28.3]
-        }
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_an_phu": {
+        "id": "MUA_an_phu",
+        "name": "An Phú",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 11.111667,
+        "lng": 106.506667,
+        "location": "UBND Xã An Phú, Huyện Củ Chi",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm An Phú.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_binh_chanh": {
+        "id": "MUA_binh_chanh",
+        "name": "Bình Chánh",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.691111,
+        "lng": 106.5725,
+        "location": "UBND Thị trấn Tân Túc, Huyện Bình Chánh",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Bình Chánh.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_can_gio": {
+        "id": "MUA_can_gio",
+        "name": "Cần Giờ",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.409755,
+        "lng": 106.964243,
+        "location": "UBND Thị trấn Cần Thạnh, Huyện Cần Giờ",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Cần Giờ.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_cat_lai": {
+        "id": "MUA_cat_lai",
+        "name": "Cát Lái",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.770833,
+        "lng": 106.770278,
+        "location": "UBND Phường Thạnh Mỹ Lợi, Quận 2",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Cát Lái.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_cu_chi": {
+        "id": "MUA_cu_chi",
+        "name": "Củ Chi",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.955556,
+        "lng": 106.512778,
+        "location": "UBND Xã Tân Thông Hội, Huyện Củ Chi",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Củ Chi.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_hoc_mon": {
+        "id": "MUA_hoc_mon",
+        "name": "Hóc Môn",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.88819,
+        "lng": 106.598219,
+        "location": "UBND Thị trấn Hóc Môn, Huyện Hóc Môn",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Hóc Môn.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_le_minh_xuan": {
+        "id": "MUA_le_minh_xuan",
+        "name": "Lê Minh Xuân",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.777222,
+        "lng": 106.537222,
+        "location": "UBND Xã Lê Minh Xuân, Huyện Bình Chánh",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Lê Minh Xuân.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_nha_be_synop": {
+        "id": "MUA_nha_be_synop",
+        "name": "Nhà Bè Synop",
+        "type": "Trạm đo mưa (Synop)",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.6575,
+        "lng": 106.7322222,
+        "location": "249 Nguyễn Văn Tạo, Xã Long Thới, Huyện Nhà Bè",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Nhà Bè Synop.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_nha_be": {
+        "id": "MUA_nha_be",
+        "name": "Nhà Bè",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.678056,
+        "lng": 106.753889,
+        "location": "UBND Xã Phú Xuân, Huyện Nhà Bè",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Nhà Bè.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_pham_van_coi": {
+        "id": "MUA_pham_van_coi",
+        "name": "Phạm Văn Cội",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 11.038056,
+        "lng": 106.522222,
+        "location": "UBND Xã Phạm Văn Cội, Huyện Củ Chi",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Phạm Văn Cội.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_tam_thon_hiep": {
+        "id": "MUA_tam_thon_hiep",
+        "name": "Tam Thôn Hiệp",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.597706,
+        "lng": 106.859726,
+        "location": "UBND Xã Tam Thôn Hiệp, Huyện Cần Giờ",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Tam Thôn Hiệp.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_thu_duc": {
+        "id": "MUA_thu_duc",
+        "name": "Thủ Đức",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.844789,
+        "lng": 106.755827,
+        "location": "Khu phố 2, Phường Trường Thọ, Quận Thủ Đức",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Thủ Đức.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_mac_dinh_chi": {
+        "id": "MUA_mac_dinh_chi",
+        "name": "Mạc Đĩnh Chi",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.78416667,
+        "lng": 106.7002778,
+        "location": "08 Mạc Đĩnh Chi, P. Bến Nghé, Quận 1",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Mạc Đĩnh Chi.",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
+    },
+    "MUA_tan_son_hoa": {
+        "id": "MUA_tan_son_hoa",
+        "name": "Tân Sơn Hòa",
+        "type": "Trạm đo mưa",
+        "typeColor": "text-sky-600",
+        "dotColor": "#0284c7",
+        "lat": 10.79638889,
+        "lng": 106.6666667,
+        "location": "236B Lê Văn Sỹ, P. 1, Quận Tân Bình",
+        "elevations": { "peak": 0, "bed": 0 },
+        "desc": "Tổng hợp số liệu đo đạc lượng mưa trạm Tân Sơn Hòa (2008-2021).",
+        "alarms": { "bd1": 0, "bd2": 0, "bd3": 0 },
+        "chartData": { "labels": [], "dates": [], "raw": [], "rainfallRaw": [] },
+        "loaded": false
     }
 };
