@@ -347,11 +347,14 @@ function updateDashboard() {
 
     // 1. Lọc dữ liệu theo khoảng ngày đã chọn
     const labels = [];
-    const waterData = [];
+    const peakData = [];
+    const bedData = [];
     const rainData = [];
+    const uniqueRainyDays = new Set();
     
     const rawLabels = st.chartData.labels || [];
-    const rawWater = st.chartData.raw || [];
+    const rawPeak = st.chartData.peak || [];
+    const rawBed = st.chartData.bed || [];
     const rawRain = st.chartData.rainfallRaw || [];
     const rawDates = st.chartData.dates || [];
 
@@ -362,8 +365,14 @@ function updateDashboard() {
         if (filteredEndDate && dateStr && dateStr > filteredEndDate) continue;
         
         labels.push(rawLabels[i]);
-        waterData.push(rawWater[i]);
+        peakData.push(rawPeak[i]);
+        bedData.push(rawBed[i]);
         rainData.push(rawRain[i]);
+        
+        // Lưu trữ ngày độc nhất có lượng mưa thực tế lớn hơn 0
+        if (rawRain[i] && rawRain[i] > 0 && dateStr) {
+            uniqueRainyDays.add(dateStr);
+        }
     }
 
     // 2. Cập nhật thông tin chi tiết trạm (Left Panel)
@@ -388,9 +397,12 @@ function updateDashboard() {
     `;
 
     // Tính toán số liệu đo đạc (KPIs) dựa trên kết quả lọc
-    const validWater = waterData.filter(v => v !== null && v !== undefined);
-    const maxW = validWater.length > 0 ? Math.max(...validWater) : 0;
-    const minW = validWater.length > 0 ? Math.min(...validWater) : 0;
+    const validPeak = peakData.filter(v => v !== null && v !== undefined);
+    const validBed = bedData.filter(v => v !== null && v !== undefined);
+    const validWater = [...validPeak, ...validBed];
+    
+    const maxW = validPeak.length > 0 ? Math.max(...validPeak) : 0;
+    const minW = validBed.length > 0 ? Math.min(...validBed) : 0;
 
     const validRain = rainData.filter(v => v !== null && v !== undefined);
     const totalRain = validRain.reduce((a, b) => a + b, 0);
@@ -455,67 +467,135 @@ function updateDashboard() {
         alertBg.classList.add('opacity-0');
     }
 
-    let statusColor = 'text-emerald-600';
-    let statusText = 'Bình thường';
-    if (isOverBD3) {
-        statusColor = 'text-rose-600 animate-pulse';
-        statusText = 'Vượt Báo Động 3';
-    } else if (st.alarms.bd2 > 0 && maxW >= st.alarms.bd2) {
-        statusColor = 'text-orange-500';
-        statusText = 'Vượt Báo Động 2';
-    } else if (st.alarms.bd1 > 0 && maxW >= st.alarms.bd1) {
-        statusColor = 'text-amber-500';
-        statusText = 'Vượt Báo Động 1';
-    }
+    const isRainStation = st.type === 'Trạm đo mưa' || st.type.includes('mưa');
+    let kpiHtml = '';
 
-    const maxWStr = maxW > 0 ? `${maxW} ${unit}` : '--';
-    const minWStr = minW > 0 ? `${minW} ${unit}` : '--';
-    const totalRainStr = totalRain > 0 ? `${Math.round(totalRain)} mm` : '--';
-    const rainStatus = totalRain > 150 ? 'Mưa lũ tích lũy lớn' : totalRain > 50 ? 'Mưa to' : totalRain > 0 ? 'Mưa nhỏ' : 'Không mưa';
+    if (isRainStation) {
+        // --- KPI cho Trạm Lượng Mưa ---
+        let rainStatusColor = 'text-emerald-600';
+        let rainStatusText = 'Bình thường';
+        let rainIcon = '☀️';
 
-    const kpiHtml = `
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 ${isOverBD3 ? 'border-rose-300 bg-rose-50' : ''}">
-            <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Mực nước Đỉnh</div>
-            <div class="text-2xl font-bold ${isOverBD3 ? 'text-rose-700' : 'text-slate-800'}">${maxWStr}</div>
-        </div>
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Mực nước Đáy</div>
-            <div class="text-2xl font-bold text-slate-800">${minWStr}</div>
-        </div>
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Lượng mưa tích lũy</div>
-            <div class="text-2xl font-bold text-sky-600">${totalRainStr}</div>
-            <div class="text-xs text-slate-500 mt-1">${rainStatus}</div>
-        </div>
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Tình trạng</div>
-            <div class="text-lg font-bold flex items-center gap-2 ${statusColor}">
-                ${isOverBD3 ? '⚠️' : ''} ${statusText}
+        if (totalRain > 150) {
+            rainStatusColor = 'text-rose-600 animate-pulse font-bold';
+            rainStatusText = 'Mưa rất to';
+            rainIcon = '⛈️';
+        } else if (totalRain > 50) {
+            rainStatusColor = 'text-orange-500 font-bold';
+            rainStatusText = 'Mưa to';
+            rainIcon = '🌧️';
+        } else if (totalRain > 10) {
+            rainStatusColor = 'text-sky-600';
+            rainStatusText = 'Mưa vừa';
+            rainIcon = '🌦️';
+        } else if (totalRain > 0) {
+            rainStatusColor = 'text-sky-500';
+            rainStatusText = 'Mưa nhỏ';
+            rainIcon = '💧';
+        }
+
+        const maxRainStr = maxRain > 0 ? `${maxRain.toFixed(1)} mm` : '--';
+        const totalRainStr = totalRain > 0 ? `${totalRain.toFixed(1)} mm` : '0.0 mm';
+        const rainyDays = uniqueRainyDays.size;
+
+        kpiHtml = `
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Tổng Lượng Mưa</div>
+                <div class="text-2xl font-bold text-sky-600">${totalRainStr}</div>
             </div>
-        </div>
-    `;
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Lượng Mưa Lớn Nhất</div>
+                <div class="text-2xl font-bold text-sky-500">${maxRainStr}</div>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Số ngày có mưa</div>
+                <div class="text-2xl font-bold text-slate-700">${rainyDays} ngày</div>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Tình trạng</div>
+                <div class="text-lg font-bold flex items-center gap-2 ${rainStatusColor}">
+                    ${rainIcon} ${rainStatusText}
+                </div>
+            </div>
+        `;
+    } else {
+        // --- KPI cho Trạm Mực Nước ---
+        let statusColor = 'text-emerald-600';
+        let statusText = 'Bình thường';
+        if (isOverBD3) {
+            statusColor = 'text-rose-600 animate-pulse';
+            statusText = 'Vượt Báo Động 3';
+        } else if (st.alarms.bd2 > 0 && maxW >= st.alarms.bd2) {
+            statusColor = 'text-orange-500';
+            statusText = 'Vượt Báo Động 2';
+        } else if (st.alarms.bd1 > 0 && maxW >= st.alarms.bd1) {
+            statusColor = 'text-amber-500';
+            statusText = 'Vượt Báo Động 1';
+        }
+
+        const maxWStr = validWater.length > 0 ? `${maxW.toFixed(2)} ${unit}` : '--';
+        const minWStr = validWater.length > 0 ? `${minW.toFixed(2)} ${unit}` : '--';
+        
+        // Tính toán Mực nước Trung bình
+        const avgW = validWater.length > 0 ? (validWater.reduce((a, b) => a + b, 0) / validWater.length) : 0;
+        const avgWStr = validWater.length > 0 ? `${avgW.toFixed(2)} ${unit}` : '--';
+
+        kpiHtml = `
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 ${isOverBD3 ? 'border-rose-300 bg-rose-50' : ''}">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Mực nước Đỉnh</div>
+                <div class="text-2xl font-bold ${isOverBD3 ? 'text-rose-700' : 'text-slate-800'}">${maxWStr}</div>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Mực nước Đáy</div>
+                <div class="text-2xl font-bold text-slate-800">${minWStr}</div>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Mực nước Trung bình</div>
+                <div class="text-2xl font-bold text-slate-800">${avgWStr}</div>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Tình trạng</div>
+                <div class="text-lg font-bold flex items-center gap-2 ${statusColor}">
+                    ${isOverBD3 ? '⚠️' : ''} ${statusText}
+                </div>
+            </div>
+        `;
+    }
     document.getElementById('kpiContainer').innerHTML = kpiHtml;
 
     // 4. Vẽ biểu đồ hỗn hợp động dựa theo loại trạm (Mực nước: Line màu xanh lá, Lượng mưa: Bar màu xanh dương)
     chartInstance.data.labels = labels;
     
     const datasets = [];
-    const isRainStation = st.type === 'Trạm đo mưa' || st.type.includes('mưa');
 
     // Chỉ vẽ đường Mực nước nếu trạm không phải là trạm đo lượng mưa thuần túy
     if (!isRainStation && validWater.length > 0) {
         datasets.push({
             type: 'line',
-            label: `Mực nước (${unit})`,
-            data: waterData,
-            borderColor: '#10b981', // Màu xanh lá cho Mực nước
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            borderWidth: 2.5,
-            pointRadius: 3,
+            label: `Mực nước Đỉnh (${unit})`,
+            data: peakData,
+            borderColor: '#10b981', // Màu xanh lá cho Mực nước Đỉnh
+            backgroundColor: 'rgba(16, 185, 129, 0.05)',
+            borderWidth: 2.2,
+            pointRadius: 2.5,
             pointBackgroundColor: '#10b981',
-            tension: 0.4,
+            tension: 0.35,
             spanGaps: true,
-            fill: true,
+            fill: false,
+            yAxisID: 'y'
+        });
+        datasets.push({
+            type: 'line',
+            label: `Mực nước Đáy (${unit})`,
+            data: bedData,
+            borderColor: '#06b6d4', // Màu xanh ngọc bích cho Mực nước Đáy
+            backgroundColor: 'rgba(6, 182, 212, 0.05)',
+            borderWidth: 2.2,
+            pointRadius: 2.5,
+            pointBackgroundColor: '#06b6d4',
+            tension: 0.35,
+            spanGaps: true,
+            fill: false,
             yAxisID: 'y'
         });
     }
@@ -701,7 +781,7 @@ async function loadStationData(stId, startDate, endDate) {
         if (st.id.startsWith('MN_')) {
             const { data, error } = await supabaseClient
                 .from('tram_thuy_van')
-                .select('ngay, gio, mucNuoc')
+                .select('ngay, gio, doCaoDinhT, doCaoChanT')
                 .eq('tenTram', st.name)
                 .gte('ngay', startDate)
                 .lte('ngay', endDate)
@@ -713,6 +793,8 @@ async function loadStationData(stId, startDate, endDate) {
             
             st.chartData.labels = [];
             st.chartData.dates = [];
+            st.chartData.peak = [];
+            st.chartData.bed = [];
             st.chartData.raw = [];
             st.chartData.rainfallRaw = [];
             
@@ -720,7 +802,9 @@ async function loadStationData(stId, startDate, endDate) {
                 const label = `${row.gio || ''} ${row.ngay ? row.ngay.substring(5) : ''}`.trim();
                 st.chartData.labels.push(label);
                 st.chartData.dates.push(row.ngay);
-                st.chartData.raw.push(row.mucNuoc);
+                st.chartData.peak.push(row.doCaoDinhT);
+                st.chartData.bed.push(row.doCaoChanT);
+                st.chartData.raw.push(null);
                 st.chartData.rainfallRaw.push(null);
             });
         } else if (st.id.startsWith('MUA_')) {
@@ -738,6 +822,8 @@ async function loadStationData(stId, startDate, endDate) {
             
             st.chartData.labels = [];
             st.chartData.dates = [];
+            st.chartData.peak = [];
+            st.chartData.bed = [];
             st.chartData.raw = [];
             st.chartData.rainfallRaw = [];
             
@@ -745,6 +831,8 @@ async function loadStationData(stId, startDate, endDate) {
                 const label = `${row.gio || ''} ${row.ngay ? row.ngay.substring(5) : ''}`.trim();
                 st.chartData.labels.push(label);
                 st.chartData.dates.push(row.ngay);
+                st.chartData.peak.push(null);
+                st.chartData.bed.push(null);
                 st.chartData.raw.push(null);
                 st.chartData.rainfallRaw.push(row.luongMua);
             });
