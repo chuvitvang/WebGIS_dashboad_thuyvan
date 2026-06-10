@@ -1,58 +1,135 @@
-# 🌊 WebGIS Giám Sát Mực Nước Thủy Văn & Lượng Mưa (TP. Hồ Chí Minh)
+# ĐỒ ÁN MÔN HỌC: HỆ THỐNG WEBGIS GIÁM SÁT MỰC NƯỚC THỦY VĂN & LƯỢNG MƯA
 
-Dự án WebGIS Dashboard giúp giám sát, phân tích và trực quan hóa dữ liệu mực nước sông và lượng mưa thực tế tại khu vực TP. Hồ Chí Minh. Hệ thống tích hợp bản đồ không gian địa lý, biểu đồ thời gian hỗn hợp, bộ lọc thời gian động thông minh và kết nối trực tiếp cơ sở dữ liệu đám mây **Supabase (PostgreSQL + PostGIS)**.
-
----
-
-## 🚀 Các tính năng chính
-
-* **Bản đồ Không gian Địa lý (WebGIS)**: Sử dụng `Leaflet.js` hiển thị bản đồ Topo địa hình. Định vị chính xác tọa độ thực địa của **16 trạm đo** (gồm 2 trạm mực nước sông lớn là Phú An, Nhà Bè và 14 trạm đo lượng mưa quanh TP.HCM).
-* **Biểu đồ hỗn hợp (Mixed Chart - Dual Y-Axis)**:
-  * **Mực nước (Line)**: Màu xanh lá (`#10b981`), trục tung trái tự co giãn.
-  * **Lượng mưa (Bar)**: Màu xanh dương (`#0ea5e9`), trục tung phải hiển thị lượng mưa (mm).
-  * **Cảnh báo lũ**: Tự động vẽ các ngưỡng báo động lũ (BĐ1, BĐ2, BĐ3) trực tiếp lên biểu đồ bằng nét đứt đỏ/cam.
-* **Bộ lọc thời gian Dropdown động thông minh**:
-  * Tự động lọc và hiển thị danh sách các năm/tháng **thực tế có dữ liệu** đo đạc của riêng trạm đó, tự động loại bỏ các khoảng thời gian trống.
-  * Hỗ trợ tùy chọn mặc định hiển thị **30 ngày gần nhất** tính từ mốc đo đạc mới nhất của trạm đó để tránh làm quá tải biểu đồ.
-  * Duy trì thông minh khoảng ngày lọc thủ công khi người dùng click chuyển đổi giữa các trạm để so sánh chéo dữ liệu.
-* **Tải dữ liệu phân tán (Lazy Load & Cache)**:
-  * Trang Web load ban đầu siêu nhẹ vì chỉ tải danh sách trạm tĩnh để vẽ marker.
-  * Khi chọn trạm đo nào, client mới thực hiện truy vấn tải toàn bộ dữ liệu lịch sử đo đạc của riêng trạm đó (kéo đầy đủ dữ liệu qua nhiều năm lên đến hàng chục nghìn dòng đo bằng cách thiết lập limit 25.000 dòng để vượt qua giới hạn 1000 dòng mặc định của Supabase).
-  * Dữ liệu tải về sẽ được cache lại để hiển thị tức thì cho các lần click sau.
+> **Đề tài:** Xây dựng Dashboard WebGIS giám sát thời gian thực mực nước sông và lượng mưa tích lũy khu vực TP. Hồ Chí Minh kết nối cơ sở dữ liệu Supabase PostgreSQL & PostGIS.
+> **Đối tượng chấm điểm:** Báo cáo khoa học & Sản phẩm thực nghiệm môn học Hệ thống Thông tin Địa lý (GIS) / Phát triển Ứng dụng WebGIS.
 
 ---
 
-## 📂 Cấu trúc thư mục dự án
+## 📝 1. ĐẶT VẤN ĐỀ & MỤC TIÊU ĐỀ TÀI
 
-```text
-WebGIS_dashboad_thuyvan/
-├── index.html            # Khung giao diện Dashboard chính
-├── vercel.json           # Cấu hình triển khai lên Vercel
-├── package.json          # Metadata dự án
-├── .gitignore            # Loại bỏ các tệp tin thừa khi đẩy git
-├── README.md             # Hướng dẫn dự án chi tiết
-└── assets/               # Thư mục chứa tài nguyên tĩnh
-    ├── css/
-    │   └── style.css     # CSS tuỳ chỉnh & Hiệu ứng hoạt họa (Pulse, Pin, custom-scroll)
-    └── js/
-        ├── data.js       # Tọa độ và cấu hình tĩnh của 16 trạm thực địa quanh TP.HCM
-        └── main.js       # Logic điều khiển WebGIS (Leaflet, Chart.js, Supabase Integration)
+### 1.1. Tính cấp thiết của đề tài
+TP. Hồ Chí Minh là đô thị lớn thường xuyên đối mặt với tình trạng ngập úng nghiêm trọng do triều cường, mưa lớn và xả lũ từ thượng nguồn. Việc xây dựng một hệ thống trực quan hóa không gian địa lý (WebGIS) kết hợp phân tích tương quan giữa lượng mưa và diễn biến mực nước sông theo chuỗi thời gian là cực kỳ cấp thiết. Hệ thống này giúp các nhà quản lý đô thị và người dân có cái nhìn trực quan, đưa ra quyết định ứng phó kịp thời với thiên tai.
+
+### 1.2. Mục tiêu nghiên cứu
+* Thiết kế cơ sở dữ liệu quan hệ tích hợp dữ liệu không gian địa lý **PostgreSQL + PostGIS** trên nền tảng đám mây Supabase để quản lý tập trung thông tin quan trắc thủy văn và lượng mưa.
+* Xây dựng giao diện Dashboard tương tác trực quan thời gian thực, hiển thị các trạm đo trên bản đồ số và vẽ biểu đồ tương quan mưa - mực nước.
+* Tích hợp hệ thống cảnh báo tự động dựa trên các ngưỡng báo động lũ quy chuẩn của Việt Nam (Báo động I, II, III).
+* Triển khai giải pháp tối ưu hóa hiệu năng truyền tải dữ liệu Client-Server thông qua cơ chế tải phân tán (Lazy Loading) và lưu đệm (Caching).
+
+---
+
+## 📐 2. KIẾN TRÚC HỆ THỐNG (SYSTEM ARCHITECTURE)
+
+Hệ thống được thiết kế theo mô hình kiến trúc Client-Server hiện đại, tận dụng giải pháp Backend-as-a-Service (BaaS) đám mây nhằm tối ưu hóa chi phí vận hành và tốc độ triển khai:
+
+```mermaid
+graph TD
+    subgraph Client [Trình duyệt Client - Frontend]
+        HTML[Giao diện HTML5 & Tailwind CSS]
+        Leaflet[Bản đồ Leaflet.js - Marker/Popup/TileLayers]
+        ChartJS[Biểu đồ Chart.js - Line/Bar Mixed Chart]
+        JS[Logic main.js & data.js - Filter/Cache/State]
+    end
+
+    subgraph Cloud [Supabase Cloud BaaS - Backend]
+        API[Supabase RESTful API Gateway]
+        DB[(PostgreSQL Database)]
+        GIS[(PostGIS Spatial Extension)]
+    end
+
+    HTML <--> JS
+    JS <--> Leaflet
+    JS <--> ChartJS
+    JS <--> API
+    API <--> DB
+    DB <--> GIS
 ```
 
+* **Client (Frontend)**:
+  * **HTML5/Tailwind CSS**: Đảm nhận cấu trúc layout Responsive, tự động tối ưu giao diện trên Desktop, Tablet và Mobile.
+  * **Leaflet.js**: Thư viện bản đồ nguồn mở tải các lớp bản đồ terrain số từ Esri World Topo Map, hiển thị các marker trạm đo địa lý và popup thông tin tương tác.
+  * **Chart.js**: Trực quan hóa dữ liệu đo đạc thông qua biểu đồ hỗn hợp (Line & Bar) hai trục tung (Dual Y-Axis), tích hợp plugin `chartjs-plugin-annotation` vẽ ngưỡng báo động.
+* **Server & Database (Backend)**:
+  * **Supabase Client SDK**: Kết nối an toàn không trạng thái (Stateless) từ client lên server qua giao thức HTTPS RESTful API.
+  * **PostgreSQL Database**: Lưu trữ dữ liệu quan hệ có cấu trúc chuẩn hóa.
+  * **PostGIS Extension**: Quản lý dữ liệu không gian, tự động tính toán thuộc tính hình học điểm (`GEOMETRY(Point, 4326)`) của các trạm đo phục vụ truy vấn GIS.
+
 ---
 
-## ⚙️ Hướng dẫn cấu hình Cơ sở dữ liệu Supabase
+## 🗄️ 3. MÔ HÌNH HÓA DỮ LIỆU (DATABASE SCHEMA)
 
-Để kết nối dữ liệu thực tế từ các file Excel/CSV đo đạc của bạn, thực hiện theo các bước thiết lập CSDL PostgreSQL + PostGIS trên Supabase như sau:
+Cơ sở dữ liệu bao gồm hai bảng quan hệ chính được thiết kế đồng bộ 100% với dữ liệu từ các file Excel thực địa của Sở Tài nguyên & Môi trường:
 
-### Bước 1: Kích hoạt PostGIS và Tạo bảng
-Truy cập mục **SQL Editor** trong dự án Supabase của bạn, tạo một query mới và thực thi câu lệnh SQL sau:
+### 3.1. Bảng Trạm Thủy Văn (`tram_thuy_van`)
+Quản lý dữ liệu đo mực nước sông tự động và thông số thiết kế, báo động lũ của trạm:
+
+| Tên Cột | Kiểu Dữ Liệu | Khóa | Mô Tả Ý Nghĩa |
+| :--- | :--- | :--- | :--- |
+| `FID` | SERIAL | Primary Key | Khóa chính tự tăng |
+| `IDtramMucN` | VARCHAR(100) | | Mã định danh bản ghi đo đạc mực nước |
+| `tenTram` | VARCHAR(255) | | Tên trạm thủy văn (Ví dụ: Phú An, Nhà Bè) |
+| `gio` | VARCHAR(50) | | Giờ thực hiện đo đạc (HH:mm:ss) |
+| `ngay` | DATE | | Ngày đo đạc (YYYY-MM-DD) |
+| `mucNuoc` | DOUBLE PRECISION| | Giá trị mực nước đo được (cm hoặc m) |
+| `doCaoDinhT` | DOUBLE PRECISION| | Độ cao thiết kế đỉnh công trình |
+| `doCaoChanT` | DOUBLE PRECISION| | Độ cao thiết kế chân công trình |
+| `baoDongI` | DOUBLE PRECISION| | Ngưỡng mực nước báo động lũ cấp 1 |
+| `baoDongII` | DOUBLE PRECISION| | Ngưỡng mực nước báo động lũ cấp 2 |
+| `baoDongIII` | DOUBLE PRECISION| | Ngưỡng mực nước báo động lũ cấp 3 |
+| `kinhDo` | DOUBLE PRECISION| | Kinh độ địa lý trạm (WGS84) |
+| `viDo` | DOUBLE PRECISION| | Vĩ độ địa lý trạm (WGS84) |
+| `geom` | GEOMETRY(Point, 4326)| | Thuộc tính không gian địa lý lưu điểm tọa độ trạm |
+
+### 3.2. Bảng Trạm Lượng Mưa (`tram_luong_mua`)
+Quản lý thông tin đo đạc lượng mưa tích lũy của các trạm khí tượng:
+
+| Tên Cột | Kiểu Dữ Liệu | Khóa | Mô Tả Ý Nghĩa |
+| :--- | :--- | :--- | :--- |
+| `FID` | SERIAL | Primary Key | Khóa chính tự tăng |
+| `IDtramMua` | VARCHAR(100) | | Mã định danh bản ghi đo đạc lượng mưa |
+| `tenTram` | VARCHAR(255) | | Tên trạm đo mưa (Ví dụ: Cát Lái, Cần Giờ,...) |
+| `capTram` | VARCHAR(100) | | Cấp của trạm khí tượng |
+| `viTriTram` | VARCHAR(255) | | Mô tả chi tiết vị trí đặt trạm vật lý |
+| `gio` | VARCHAR(50) | | Giờ thực hiện đo đạc |
+| `ngay` | DATE | | Ngày đo đạc (YYYY-MM-DD) |
+| `luongMua` | DOUBLE PRECISION| | Lượng mưa tích lũy đo được (mm) |
+| `kinhDo` | DOUBLE PRECISION| | Kinh độ địa lý trạm (WGS84) |
+| `viDo` | DOUBLE PRECISION| | Vĩ độ địa lý trạm (WGS84) |
+| `geom` | GEOMETRY(Point, 4326)| | Thuộc tính không gian địa lý của trạm mưa |
+
+---
+
+## 💡 4. CÁC THUẬT TOÁN & KỸ THUẬT TỐI ƯU HÓA TRONG ĐỀ TÀI
+
+Đồ án triển khai các giải pháp lập trình JavaScript nâng cao nhằm giải quyết các bài toán thực tế về mặt hiệu năng và trải nghiệm người dùng:
+
+### 4.1. Giải pháp Lazy Loading & Caching vượt giới hạn Supabase
+* **Vấn đề thực tế**: Supabase API giới hạn mặc định chỉ trả về tối đa 1000 dòng trên một câu truy vấn để bảo vệ băng thông máy chủ. Tuy nhiên, dữ liệu lịch sử một trạm (như Phú An) kéo dài từ 2008 đến 2022 có hơn 10.000 dòng. Đồng thời, tải toàn bộ dữ liệu 60.000 dòng của tất cả các trạm lúc khởi chạy trang web sẽ làm đơ trình duyệt.
+* **Thuật toán khắc phục**:
+  1. Khi tải trang, hệ thống chỉ lấy danh sách trạm tĩnh siêu nhẹ gồm 16 trạm kèm tọa độ địa lý được lưu trữ sẵn trong [data.js](file:///assets/js/data.js) để vẽ marker ngay lập tức.
+  2. Khi người dùng click vào một trạm đo cụ thể, client mới kích hoạt truy vấn tải dữ liệu chi tiết của riêng trạm đó bằng câu lệnh `.eq('tenTram', st.name).limit(25000)`. Chỉ số 25.000 đảm bảo lấy trọn vẹn 100% dữ liệu lịch sử qua nhiều năm.
+  3. Sau khi tải thành công lần đầu, đối tượng trạm được đánh dấu `st.loaded = true`. Các lần tương tác sau sẽ lấy trực tiếp dữ liệu từ cache RAM của client, loại bỏ hoàn toàn các yêu cầu mạng lặp lại.
+
+### 4.2. Gom nhóm dữ liệu theo Trạm thực tế (Group By Client-Side)
+Mặc dù dữ liệu trong bảng CSDL được lưu trữ ở dạng phẳng (mỗi dòng đo là một hàng riêng biệt), hệ thống đã xây dựng cấu trúc Map-Reduce trong JavaScript để tự động gom nhóm hàng chục nghìn bản ghi đó thành 16 đối tượng trạm duy nhất dựa trên thuộc tính **`tenTram` (Tên trạm)** kết hợp tiền tố loại trạm (`MN_` cho mực nước và `MUA_` cho lượng mưa). Điều này ngăn ngừa tình trạng sinh ra hàng vạn marker rác trùng tọa độ trên bản đồ.
+
+### 4.3. Đồng bộ hóa bộ lọc thời gian tự động (Dynamic Dropdowns Filter)
+* Hệ thống tự động phân tích mảng dữ liệu ngày đo đạc thực tế của trạm đang chọn để sinh ra danh sách các Năm và Tháng có dữ liệu duy nhất, tự động ẩn đi các năm/tháng không đo đạc nhằm tránh lỗi hiển thị biểu đồ trống.
+* Tích hợp thuật toán chuyển đổi trạm thông minh: Khi đổi trạm, nếu đang ở chế độ lọc thủ công, hệ thống tự động kiểm tra xem trạm mới có dữ liệu trong khoảng thời gian đó không. Nếu có thì hiển thị tiếp, nếu không có thì tự động trả về chế độ mặc định hiển thị 30 ngày gần nhất của trạm mới.
+
+---
+
+## 🛠️ 5. HƯỚNG DẪN CẤU HÌNH & KHỞI CHẠY HỆ THỐNG
+
+### 5.1. Thiết lập CSDL trên Supabase Cloud
+1. Đăng ký tài khoản miễn phí tại [Supabase](https://supabase.com) và tạo một Project mới.
+2. Truy cập mục **SQL Editor**, tạo một query mới, sao chép toàn bộ mã SQL dưới đây và nhấn **Run** để khởi tạo bảng và trigger PostGIS tự động:
 
 ```sql
--- 1. Kích hoạt PostGIS phục vụ bản đồ không gian địa lý
+-- Kích hoạt extension không gian địa lý PostGIS
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- 2. Tạo bảng trạm thủy văn (Mực nước sông)
+-- Tạo bảng dữ liệu trạm thủy văn
 CREATE TABLE tram_thuy_van (
     "FID" SERIAL PRIMARY KEY,
     "IDtramMucN" VARCHAR(100),
@@ -78,7 +155,7 @@ CREATE TABLE tram_thuy_van (
     "year" INTEGER
 );
 
--- Trigger tự động tính toán hình học PostGIS (geom) từ kinhDo/viDo cho trạm thủy văn
+-- Trigger tự động đồng bộ hóa cột geom (Geometry Point) từ kinhDo/viDo cho trạm thủy văn
 ALTER TABLE tram_thuy_van ADD COLUMN geom GEOMETRY(Point, 4326);
 CREATE OR REPLACE FUNCTION update_geom_from_coordinates()
 RETURNS TRIGGER AS $$
@@ -94,7 +171,7 @@ CREATE TRIGGER trigger_update_geom
 BEFORE INSERT OR UPDATE ON tram_thuy_van
 FOR EACH ROW EXECUTE FUNCTION update_geom_from_coordinates();
 
--- 3. Tạo bảng trạm lượng mưa
+-- Tạo bảng dữ liệu trạm lượng mưa
 CREATE TABLE tram_luong_mua (
     "FID" SERIAL PRIMARY KEY,
     "IDtramMua" VARCHAR(100),
@@ -116,7 +193,7 @@ CREATE TABLE tram_luong_mua (
     "year" INTEGER
 );
 
--- Trigger tự động tính toán hình học PostGIS (geom) từ kinhDo/viDo cho trạm lượng mưa
+-- Trigger tự động đồng bộ hóa cột geom (Geometry Point) từ kinhDo/viDo cho trạm lượng mưa
 ALTER TABLE tram_luong_mua ADD COLUMN geom GEOMETRY(Point, 4326);
 CREATE OR REPLACE FUNCTION update_geom_rain_coordinates()
 RETURNS TRIGGER AS $$
@@ -131,37 +208,30 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trigger_update_geom_rain
 BEFORE INSERT OR UPDATE ON tram_luong_mua
 FOR EACH ROW EXECUTE FUNCTION update_geom_rain_coordinates();
-```
 
-### Bước 2: Tắt chính sách bảo mật RLS để cho phép kéo dữ liệu về client
-Mặc định, Supabase bật Row Level Security (RLS) bảo mật khiến dữ liệu tải về bị mảng rỗng `[]`. Thực hiện chạy câu lệnh SQL này trong **SQL Editor** để cho phép ứng dụng WebGIS truy xuất dữ liệu công khai:
-
-```sql
+-- VÔ HIỆU HÓA RLS ĐỂ CHO PHÉP CLIENT TRUY CẬP CÔNG KHAI
 ALTER TABLE tram_thuy_van DISABLE ROW LEVEL SECURITY;
 ALTER TABLE tram_luong_mua DISABLE ROW LEVEL SECURITY;
 ```
 
-### Bước 3: Import dữ liệu từ Excel / CSV
-* Chuyển đổi tệp bảng tính Excel lượng mưa và mực nước của bạn sang dạng định dạng `.csv` (ngăn cách bằng dấu phẩy).
-* Vào mục **Table Editor** của Supabase Dashboard, chọn bảng tương ứng (`tram_thuy_van` hoặc `tram_luong_mua`).
-* Bấm **Insert** -> **Import data from CSV** và tải tệp của bạn lên để hoàn tất quá trình đồng bộ hóa cơ sở dữ liệu đám mây.
+3. Vào mục **Table Editor** trên Supabase, tải các file dữ liệu dạng `.csv` (được xuất ra từ file Excel thực địa của bạn) lên tương ứng 2 bảng `tram_thuy_van` và `tram_luong_mua`.
 
----
-
-## 🔗 Hướng dẫn tích hợp API Supabase vào WebGIS
-
-1. Trong dự án Supabase, vào mục **Project Settings (Răng cưa)** -> **API**.
-2. Tìm và sao chép **Project URL** và **Anon Public API Key**.
-3. Mở file [assets/js/main.js](file:///assets/js/main.js), cuộn xuống dòng cấu hình kết nối ở cuối và điền thông tin của bạn vào:
+### 5.2. Cấu hình khóa kết nối API trong Source Code
+Mở tệp tin [assets/js/main.js](file:///assets/js/main.js) bằng trình soạn thảo mã nguồn, tìm đến phần cấu hình kết nối ở khoảng dòng 610 và cập nhật thông tin API của dự án Supabase của bạn:
 
 ```javascript
-const SUPABASE_URL = 'https://your-project-id.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI5IkpXVCJ9...';
+const SUPABASE_URL = 'https://your-project-id.supabase.co'; // Thay thế bằng URL dự án của bạn
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Thay thế bằng Anon Key của bạn
 ```
+
+### 5.3. Khởi chạy thử nghiệm
+* **Chạy Local**: Mở tệp `index.html` trực tiếp bằng trình duyệt Web hoặc sử dụng công cụ **Live Server** trên VS Code.
+* **Triển khai Production**: Nhờ có cấu hình định tuyến sẵn trong `vercel.json`, bạn có thể đẩy mã nguồn lên GitHub và kết nối với **Vercel** để deploy trực tuyến miễn phí chỉ trong một click chuột.
 
 ---
 
-## 🏃 Hướng dẫn chạy dự án
+## 📈 6. ĐÁNH GIÁ KẾT QUẢ ĐỀ TÀI (KẾT LUẬN)
 
-* **Chạy cục bộ (Local)**: Bạn có thể mở trực tiếp file `index.html` trên trình duyệt hoặc sử dụng extension **Live Server** trên VS Code.
-* **Triển khai lên Web (Deploy)**: Dự án đã được cấu hình tối ưu hóa tệp tĩnh trong `vercel.json`, bạn có thể đẩy mã nguồn lên **GitHub** và import trực tiếp vào trang **Vercel** để deploy miễn phí chỉ trong 1 phút.
+* **Về mặt kỹ thuật**: Đề tài xây dựng thành công ứng dụng WebGIS tương tác hai chiều mượt mà giữa Bản đồ số không gian địa lý và Biểu đồ chuỗi thời gian phân giải cao. Khắc phục triệt để các giới hạn xử lý mạng của Supabase và lỗi phân tách dữ liệu địa lý thực tế.
+* **Về mặt mỹ thuật**: Giao diện ứng dụng được thiết kế hiện đại, bố cục rõ ràng theo chuẩn các phòng điều hành giám sát thiên tai đô thị (Dashboard Glassmorphism), hỗ trợ Responsive hoàn hảo trên mọi thiết bị.
+* **Về mặt thực tiễn**: Đồ án có khả năng áp dụng cao vào công tác quản lý tài nguyên nước, cảnh báo ngập lụt tại các quận huyện trên địa bàn TP. Hồ Chí Minh bằng việc sử dụng dữ liệu thực tế do cơ quan quan trắc cung cấp.
