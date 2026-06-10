@@ -44,3 +44,6 @@ Thumbs.db
 *.bak
 *.swp
 *.log
+
+# Sensitive config files
+assets/js/config.js

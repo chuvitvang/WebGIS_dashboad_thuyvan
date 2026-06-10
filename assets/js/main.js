@@ -609,8 +609,9 @@ window.onload = () => {
 // CẤU HÌNH KẾT NỐI SUPABASE (DATABASE CONNECTION)
 // ====================================================
 // ĐIỀN THÔNG TIN SUPABASE CỦA BẠN DƯỚI ĐÂY ĐỂ ĐỒNG BỘ CSDL POSTGRESQL + POSTGIS:
-const SUPABASE_URL = 'https://sspiervvkhsjfpcfuusr.supabase.co'; // Nhập URL dự án Supabase của bạn (ví dụ: https://xxxx.supabase.co)
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzcGllcnZ2a2hzamZwY2Z1dXNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNzkzNDksImV4cCI6MjA5NjY1NTM0OX0.fVFeYTYqM1IsAj1ChpRik_DYJ9CwbstptOAidZBPYUg';
+// Lấy thông tin cấu hình Supabase từ tệp config.js để đảm bảo bảo mật và không bị lộ key trên github
+const SUPABASE_URL = typeof CONFIG !== 'undefined' ? CONFIG.SUPABASE_URL : ''; 
+const SUPABASE_ANON_KEY = typeof CONFIG !== 'undefined' ? CONFIG.SUPABASE_ANON_KEY : '';
 
 let supabaseClient = null;
 

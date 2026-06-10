@@ -216,13 +216,21 @@ ALTER TABLE tram_luong_mua DISABLE ROW LEVEL SECURITY;
 
 3. Vào mục **Table Editor** trên Supabase, tải các file dữ liệu dạng `.csv` (được xuất ra từ file Excel thực địa của bạn) lên tương ứng 2 bảng `tram_thuy_van` và `tram_luong_mua`.
 
-### 5.2. Cấu hình khóa kết nối API trong Source Code
-Mở tệp tin [assets/js/main.js](file:///assets/js/main.js) bằng trình soạn thảo mã nguồn, tìm đến phần cấu hình kết nối ở khoảng dòng 610 và cập nhật thông tin API của dự án Supabase của bạn:
+### 5.2. Cấu hình khóa kết nối API bảo mật
+Để đảm bảo an toàn thông tin và không bị lộ khóa kết nối (Credentials) lên GitHub:
+1. Sao chép tệp mẫu cấu hình [config.example.js](file:///assets/js/config.example.js) và đổi tên thành `config.js` trong thư mục `assets/js/`:
+   ```bash
+   cp assets/js/config.example.js assets/js/config.js
+   ```
+2. Mở tệp [assets/js/config.js](file:///assets/js/config.js) vừa tạo và cập nhật thông tin API của dự án Supabase của bạn:
+   ```javascript
+   const CONFIG = {
+       SUPABASE_URL: 'https://your-project-id.supabase.co', // Thay thế bằng URL dự án của bạn
+       SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6...' // Thay thế bằng Anon Key của bạn
+   };
+   ```
+   *(Tệp `config.js` đã được thêm vào `.gitignore` nên sẽ không bao giờ bị đẩy lên GitHub)*
 
-```javascript
-const SUPABASE_URL = 'https://your-project-id.supabase.co'; // Thay thế bằng URL dự án của bạn
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Thay thế bằng Anon Key của bạn
-```
 
 ### 5.3. Khởi chạy thử nghiệm
 * **Chạy Local**: Mở tệp `index.html` trực tiếp bằng trình duyệt Web hoặc sử dụng công cụ **Live Server** trên VS Code.
