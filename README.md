@@ -248,7 +248,7 @@ Hệ thống cung cấp cơ chế dự báo sớm trước 3 giờ ($t+1$ của 
 Mực nước triều cường $H_t^{pred}$ được dự báo dựa trên chuỗi tự hồi quy mực nước kết hợp với yếu tố lượng mưa ngoại sinh và dịch chuyển nền thực tế:
 $$H_t^{pred} = \alpha \cdot H_{t-1} + \beta \cdot R_t + (1 - \alpha) \cdot H_t^{actual} + 0.05 \cdot C_{adj}$$
 * Trong đó, $(1 - \alpha) \cdot H_t^{actual}$ đại diện cho thành phần điều chỉnh dịch chuyển nền (base shift) giúp giữ kết quả dự báo bám sát biên độ triều thực tế của trạm (1-step ahead forecast).
-* Các hệ số cấu hình thực nghiệm cho các trạm quan trọng của thành phố:
+* Các hệ số cấu hình thực nghiệm giả sử cho các trạm quan trọng của thành phố:
 
 | Mã Trạm | Tên Trạm | Hệ số tự hồi quy ($\alpha$) | Hệ số tác động mưa ($\beta$) | Trễ mưa ($\gamma$) | Hằng số địa hình ($C_{adj}$) | Chỉ số $R^2$ | Sai số $RMSE$ |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
